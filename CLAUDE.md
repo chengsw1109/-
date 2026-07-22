@@ -74,13 +74,25 @@ is in memory and resets on restart.
    above. The server does signalling, presence, and floor control; audio is a
    WebRTC mesh.
 2. **Serverless 1-to-1 (`/direct.html`)** — no login and **no signalling
-   server**. Two browsers connect by manually exchanging base64 offer/answer
-   "codes" (pasted to each other out-of-band). Audio and a PTT control
-   `RTCDataChannel` are pure P2P; the Node server only serves the static file.
-   ICE gathering is non-trickle (bundled into the code); a "LAN only" toggle
-   drops STUN. This mode cannot use TURN, so it can't traverse symmetric NATs —
-   documented honestly in the UI. It shares `style.css` but is otherwise
-   independent of `app.js`/`server`.
+   server**. Two browsers connect by exchanging offer/answer "codes" out-of-band,
+   via **QR** or copy/paste. Audio and a PTT control `RTCDataChannel` are pure
+   P2P; the Node server only serves the static file. It shares `style.css` but is
+   otherwise independent of `app.js`/`server`.
+   - **Codes** are `deflate-raw` compressed (`CompressionStream`, with a plain
+     base64 fallback) then base64url'd, so they fit in a scannable QR. The QR
+     encodes a deep link `…/direct.html#o=<code>` (offer) / `#a=<code>` (answer).
+   - **QR encoder** is vendored at `public/vendor/qrcode.js` (byte-mode, adapted
+     from Nayuki, MIT). Its correctness is verified by decoding its output with
+     `jsQR` (a dev-only dep) — see the round-trip check when changing it.
+   - **Scanning:** the invite QR is opened with the phone's **native camera**
+     (works on iOS), which loads the deep link and pre-fills the callee screen.
+     Reading the reply back into the caller's existing tab needs an in-page
+     `BarcodeDetector` (Chrome/Android); iOS Safari lacks it, so the reply falls
+     back to copy/paste. The second handshake message must land in the tab that
+     created the offer, so it can never come via a fresh deep-link navigation.
+   - ICE gathering is non-trickle (bundled into the code); a "LAN only" toggle
+     drops STUN. This mode **cannot use TURN**, so it can't traverse symmetric
+     NATs — documented honestly in the UI.
 
 ## Repository structure
 
@@ -96,7 +108,9 @@ browser-ptt/
 │   ├── style.css     # dark UI, big round PTT button
 │   ├── app.js        # login, WS signalling, WebRTC mesh, PTT mic toggle, presence UI
 │   ├── direct.html   # serverless 1-to-1 mode (no login)
-│   └── direct.js     # manual offer/answer exchange; P2P audio + PTT data channel
+│   ├── direct.js     # offer/answer exchange (QR or paste); P2P audio + PTT data channel
+│   └── vendor/
+│       └── qrcode.js # vendored byte-mode QR encoder (adapted from Nayuki, MIT)
 ├── config/
 │   └── users.json    # jwtSecret, channels, and seed users (DEMO passwords)
 ├── package.json      # ESM ("type":"module"); start / dev scripts
@@ -138,7 +152,10 @@ server manually: `curl localhost:3000/api/health` and
 - **ES modules everywhere** (`"type": "module"`). Use `import`, not `require`.
 - **No frontend framework and no bundler.** `public/` is plain HTML/CSS/JS served
   statically. Keep it dependency-free; don't introduce a build step without a
-  strong reason.
+  strong reason. If client code genuinely needs a library (e.g. the QR encoder),
+  **vendor a single self-contained file** under `public/vendor/` — no CDN/import
+  (the app must work offline and under a strict CSP). Verification-only tooling
+  (like `jsqr`) belongs in `devDependencies`, never shipped to the client.
 - **The server owns the floor.** Never let a client assume it may transmit —
   always wait for `talk_granted`. Any change to who-can-talk logic belongs in
   `rooms.js`, not the client.

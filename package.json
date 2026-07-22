@@ -17,5 +17,8 @@
     "jsonwebtoken": "^9.0.2",
     "ws": "^8.18.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "jsqr": "^1.4.0"
+  }
 }

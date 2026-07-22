@@ -55,12 +55,16 @@ for the full architecture.
 ## Serverless 1-to-1 private call
 
 Open [`/direct.html`](public/direct.html) for a **login-free, signalling-server-free**
-one-to-one mode. One person clicks *Create invite* and sends the generated code to
-the other (over any chat); the other pastes it, generates a *reply code*, and sends
-it back. After that the two browsers are connected **directly** — audio and the PTT
-control channel are pure peer-to-peer, and the server is not involved in the call at
-all (it only served the page).
+one-to-one mode. One person taps *Create invite* and shows a **QR code**; the other
+**scans it with their phone camera**, which opens the page and generates a reply.
+After that the two browsers are connected **directly** — audio and the PTT control
+channel are pure peer-to-peer, and the server is not involved in the call at all (it
+only served the page). Copy/paste of the codes works too if you'd rather not scan.
 
+- **QR exchange:** codes are compressed and encoded into a scannable QR (deep
+  link). The invite is scanned with the native camera (works on iPhone); reading
+  the reply back in-page uses `BarcodeDetector` where available (Chrome/Android),
+  otherwise fall back to paste.
 - **LAN only** checkbox drops STUN entirely (works within one network with zero
   external servers).
 - Across networks it uses a public STUN server for address discovery only.

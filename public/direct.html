@@ -18,8 +18,8 @@
       <div id="setup" class="panel">
         <p class="muted small">
           Audio connects <b>directly browser-to-browser</b> over WebRTC — no login and no
-          signalling server. You exchange the two codes below yourselves (paste them to
-          each other over any chat). After connecting, nothing goes through a server.
+          signalling server. Share the codes below by <b>scanning the QR</b> (open your
+          phone camera) or copy/paste. After connecting, nothing goes through a server.
         </p>
 
         <label class="check"><input type="checkbox" id="lan-only" /> LAN only (don't use a STUN server)</label>
@@ -31,22 +31,30 @@
 
         <!-- Caller -->
         <div id="caller" class="flow" hidden>
-          <h3>1 · Send this invite code to your friend</h3>
-          <textarea id="offer-out" readonly rows="3" placeholder="generating…"></textarea>
-          <button id="copy-offer" class="ghost">Copy invite</button>
-          <h3>2 · Paste the reply code they send back</h3>
-          <textarea id="answer-in" rows="3" placeholder="paste reply code…"></textarea>
+          <h3>1 · Let your friend scan this invite</h3>
+          <div id="offer-qr" class="qr"></div>
+          <details><summary class="muted small">…or send the code manually</summary>
+            <textarea id="offer-out" readonly rows="3" placeholder="generating…"></textarea>
+            <button id="copy-offer" class="ghost">Copy invite code</button>
+          </details>
+          <h3>2 · Get their reply</h3>
+          <button id="scan-reply" class="ghost" hidden>📷 Scan reply QR</button>
+          <textarea id="answer-in" rows="3" placeholder="…or paste reply code"></textarea>
           <button id="connect-btn">Connect</button>
         </div>
 
         <!-- Callee -->
         <div id="callee" class="flow" hidden>
-          <h3>1 · Paste the invite code you received</h3>
+          <h3>1 · Scan or paste the invite</h3>
+          <button id="scan-invite" class="ghost" hidden>📷 Scan invite QR</button>
           <textarea id="offer-in" rows="3" placeholder="paste invite code…"></textarea>
           <button id="gen-answer">Generate reply</button>
-          <h3 id="answer-h" hidden>2 · Send this reply code back</h3>
-          <textarea id="answer-out" readonly rows="3" hidden></textarea>
-          <button id="copy-answer" class="ghost" hidden>Copy reply</button>
+          <h3 id="answer-h" hidden>2 · Let them scan your reply</h3>
+          <div id="answer-qr" class="qr" hidden></div>
+          <details id="answer-manual" hidden><summary class="muted small">…or send the code manually</summary>
+            <textarea id="answer-out" readonly rows="3"></textarea>
+            <button id="copy-answer" class="ghost">Copy reply code</button>
+          </details>
         </div>
 
         <p id="setup-hint" class="muted small"></p>
@@ -62,7 +70,14 @@
     </main>
   </section>
 
+  <!-- In-page QR scanner (used where BarcodeDetector is supported) -->
+  <div id="scanner" class="scanner" hidden>
+    <video id="scan-video" playsinline muted></video>
+    <button id="scan-cancel" class="ghost">Cancel</button>
+  </div>
+
   <audio id="remote" autoplay playsinline></audio>
+  <script src="vendor/qrcode.js"></script>
   <script src="direct.js"></script>
 </body>
 </html>

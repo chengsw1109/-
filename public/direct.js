@@ -1,59 +1,104 @@
 'use strict';
 
-/* browser-ptt · serverless 1-to-1 private call
- * --------------------------------------------
+/* browser-ptt · serverless 1-to-1 private call (with QR exchange)
+ * --------------------------------------------------------------
  * No login, no signalling server, no media server. Two browsers connect
- * directly over WebRTC by exchanging offer/answer "codes" manually (the users
- * paste them to each other over any out-of-band channel). Once connected, both
- * audio and the PTT control channel are pure peer-to-peer.
+ * directly over WebRTC by exchanging offer/answer codes — either by scanning a
+ * QR (which encodes a deep link the phone camera can open) or copy/paste. Once
+ * connected, audio and the PTT control channel are pure peer-to-peer.
  *
- * Reality check: WebRTC still needs to discover network paths. On the same LAN
- * that works with host candidates alone; across networks it needs a STUN server
- * (address discovery only — it never sees your audio). Behind symmetric NATs a
- * direct path may be impossible without a TURN relay, which a truly serverless
- * setup cannot provide. The "LAN only" checkbox drops STUN entirely.
+ * Codes are deflate-compressed (CompressionStream) then base64url'd so they fit
+ * in a scannable QR. The QR is a URL like <origin>/direct.html#o=<code>; the
+ * receiver's camera opens it and the page pre-fills the invite. iOS Safari has
+ * no in-page BarcodeDetector, so on iOS the invite is scanned with the native
+ * camera and the reply falls back to copy/paste; Chrome/Android can scan the
+ * reply in-page too.
  */
 
 const $ = (s) => document.querySelector(s);
 
-const state = {
-  pc: null,
-  localStream: null,
-  channel: null, // RTCDataChannel for PTT control
-  hasFloor: false,
-};
+const state = { pc: null, localStream: null, channel: null, hasFloor: false };
+const hasCompression = typeof CompressionStream !== 'undefined';
+const canScanInPage = 'BarcodeDetector' in window;
 
-// ---- UTF-8-safe base64 for the exchange codes -----------------------------
-const encode = (obj) => btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-const decode = (str) => JSON.parse(decodeURIComponent(escape(atob(str.trim()))));
+// ---- code (de)compression + base64url -------------------------------------
+async function deflate(str) {
+  const cs = new CompressionStream('deflate-raw');
+  const w = cs.writable.getWriter();
+  w.write(new TextEncoder().encode(str)); w.close();
+  return new Uint8Array(await new Response(cs.readable).arrayBuffer());
+}
+async function inflate(bytes) {
+  const ds = new DecompressionStream('deflate-raw');
+  const w = ds.writable.getWriter();
+  w.write(bytes); w.close();
+  return new TextDecoder().decode(await new Response(ds.readable).arrayBuffer());
+}
+function b64urlEncode(bytes) {
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const bin = atob(str);
+  const a = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  return a;
+}
+// tag: 'c' = compressed, 'p' = plain (fallback when no CompressionStream)
+async function packDesc(desc) {
+  const json = JSON.stringify({ type: desc.type, sdp: desc.sdp });
+  if (hasCompression) return 'c' + b64urlEncode(await deflate(json));
+  return 'p' + b64urlEncode(new TextEncoder().encode(json));
+}
+async function unpackCode(code) {
+  code = code.trim();
+  const tag = code[0], bytes = b64urlDecode(code.slice(1));
+  const json = tag === 'c' ? await inflate(bytes)
+    : tag === 'p' ? new TextDecoder().decode(bytes)
+      : (() => { throw new Error('unrecognized code'); })();
+  return JSON.parse(json);
+}
 
+// ---- QR rendering (SVG via vendored encoder) ------------------------------
+function deepLink(param, code) {
+  return location.origin + location.pathname + '#' + param + '=' + code;
+}
+function renderQR(container, text) {
+  container.hidden = false;
+  let qr;
+  try { qr = QR.encode(text, 'L'); }
+  catch { container.innerHTML = '<p class="muted small">Code too long for a QR — use copy/paste.</p>'; return; }
+  const n = qr.size, quiet = 4, dim = n + quiet * 2;
+  let path = '';
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.getModule(x, y)) path += `M${x + quiet} ${y + quiet}h1v1h-1z`;
+  container.innerHTML =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${dim} ${dim}" width="240" height="240" shape-rendering="crispEdges">` +
+    `<rect width="${dim}" height="${dim}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
+}
+
+// ---- WebRTC ---------------------------------------------------------------
 function iceServers() {
   return $('#lan-only').checked ? [] : [{ urls: 'stun:stun.l.google.com:19302' }];
 }
-
-// Wait until ICE candidate gathering finishes so the code is self-contained
-// (non-trickle). Falls back after a short timeout if gathering stalls.
 function waitIceComplete(pc) {
   return new Promise((resolve) => {
     if (pc.iceGatheringState === 'complete') return resolve();
     const done = () => {
-      if (pc.iceGatheringState === 'complete') {
-        pc.removeEventListener('icegatheringstatechange', done);
-        resolve();
-      }
+      if (pc.iceGatheringState === 'complete') { pc.removeEventListener('icegatheringstatechange', done); resolve(); }
     };
     pc.addEventListener('icegatheringstatechange', done);
     setTimeout(resolve, 3000);
   });
 }
-
 async function ensureMic() {
   if (state.localStream) return state.localStream;
   state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  state.localStream.getAudioTracks().forEach((t) => (t.enabled = false)); // muted until PTT
+  state.localStream.getAudioTracks().forEach((t) => (t.enabled = false));
   return state.localStream;
 }
-
 function makePc() {
   const pc = new RTCPeerConnection({ iceServers: iceServers() });
   pc.ontrack = (e) => {
@@ -69,7 +114,6 @@ function makePc() {
   state.pc = pc;
   return pc;
 }
-
 function setupChannel(dc) {
   state.channel = dc;
   dc.onmessage = (e) => {
@@ -78,8 +122,8 @@ function setupChannel(dc) {
   };
 }
 
-// ---- Caller flow ----------------------------------------------------------
-$('#btn-create').addEventListener('click', async () => {
+// ---- Caller ---------------------------------------------------------------
+async function createInvite() {
   showFlow('caller');
   setHint('');
   try {
@@ -87,58 +131,83 @@ $('#btn-create').addEventListener('click', async () => {
     const pc = makePc();
     for (const t of state.localStream.getTracks()) pc.addTrack(t, state.localStream);
     setupChannel(pc.createDataChannel('ctrl'));
-
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await waitIceComplete(pc);
-    $('#offer-out').value = encode(pc.localDescription);
+    const code = await packDesc(pc.localDescription);
+    $('#offer-out').value = code;
+    renderQR($('#offer-qr'), deepLink('o', code));
   } catch (ex) {
     setHint('⚠️ ' + ex.name + ': ' + ex.message);
   }
-});
-
-$('#connect-btn').addEventListener('click', async () => {
+}
+async function connectWithReply() {
   try {
-    const answer = decode($('#answer-in').value);
+    const answer = await unpackCode($('#answer-in').value);
     await state.pc.setRemoteDescription(answer);
     setHint('Connecting…');
   } catch (ex) {
     setHint('⚠️ Bad reply code: ' + ex.message);
   }
-});
+}
 
-// ---- Callee flow ----------------------------------------------------------
-$('#btn-join').addEventListener('click', () => { showFlow('callee'); setHint(''); });
-
-$('#gen-answer').addEventListener('click', async () => {
+// ---- Callee ---------------------------------------------------------------
+async function generateReply() {
   try {
-    const offer = decode($('#offer-in').value);
+    const offer = await unpackCode($('#offer-in').value);
     await ensureMic();
     const pc = makePc();
     pc.ondatachannel = (e) => setupChannel(e.channel);
     for (const t of state.localStream.getTracks()) pc.addTrack(t, state.localStream);
-
     await pc.setRemoteDescription(offer);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     await waitIceComplete(pc);
-
-    $('#answer-out').value = encode(pc.localDescription);
+    const code = await packDesc(pc.localDescription);
+    $('#answer-out').value = code;
     $('#answer-h').hidden = false;
-    $('#answer-out').hidden = false;
-    $('#copy-answer').hidden = false;
-    setHint('Reply generated — send it back and wait to connect.');
+    $('#answer-manual').hidden = false;
+    renderQR($('#answer-qr'), deepLink('a', code));
+    setHint('Reply ready — let them scan it (or send the code). Then you connect automatically.');
   } catch (ex) {
     setHint('⚠️ Bad invite code: ' + ex.message);
   }
-});
+}
+function startCalleeFromCode(code) {
+  showFlow('callee');
+  $('#offer-in').value = code;
+  setHint('Invite loaded — tap "Generate reply".');
+}
 
-// ---- Copy buttons ---------------------------------------------------------
-$('#copy-offer').addEventListener('click', () => copy($('#offer-out')));
-$('#copy-answer').addEventListener('click', () => copy($('#answer-out')));
-function copy(el) {
-  el.select();
-  navigator.clipboard?.writeText(el.value).catch(() => document.execCommand('copy'));
+// ---- In-page QR scanning (BarcodeDetector; not on iOS Safari) --------------
+function codeFromScan(raw) {
+  const h = raw.indexOf('#');
+  if (h >= 0) {
+    const p = new URLSearchParams(raw.slice(h + 1));
+    return p.get('o') || p.get('a') || raw.trim();
+  }
+  return raw.trim();
+}
+async function scanQR(onResult) {
+  if (!canScanInPage) { setHint('This browser can’t scan in-page — paste the code instead.'); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
+  catch (e) { setHint('Camera unavailable: ' + e.message); return; }
+  const det = new BarcodeDetector({ formats: ['qr_code'] });
+  const overlay = $('#scanner'), video = $('#scan-video');
+  overlay.hidden = false; video.srcObject = stream; await video.play().catch(() => {});
+  let stopped = false;
+  const stop = () => { stopped = true; overlay.hidden = true; stream.getTracks().forEach((t) => t.stop()); };
+  $('#scan-cancel').onclick = stop;
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const found = await det.detect(video);
+      if (found.length) { stop(); onResult(codeFromScan(found[0].rawValue)); return; }
+    } catch { /* keep trying */ }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 
 // ---- Connected call: PTT --------------------------------------------------
@@ -147,47 +216,55 @@ function showCall() {
   $('#call').hidden = false;
   setStatus('idle', 'Connected');
 }
-$('#enable-audio').addEventListener('click', () => {
-  $('#remote').play().catch(() => {});
-  $('#enable-audio').hidden = true;
-});
-$('#hangup').addEventListener('click', () => {
-  try { state.pc?.close(); } catch {}
-  location.reload();
-});
-
-const ptt = $('#ptt');
-const start = (e) => { e.preventDefault(); talk(true); };
-const stop = (e) => { e.preventDefault(); talk(false); };
-ptt.addEventListener('mousedown', start);
-ptt.addEventListener('touchstart', start, { passive: false });
-window.addEventListener('mouseup', stop);
-ptt.addEventListener('touchend', stop, { passive: false });
-ptt.addEventListener('touchcancel', stop);
-window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); talk(true); } });
-window.addEventListener('keyup', (e) => { if (e.code === 'Space') { e.preventDefault(); talk(false); } });
-
 function talk(on) {
   if (on === state.hasFloor || !state.localStream) return;
   state.hasFloor = on;
   state.localStream.getAudioTracks().forEach((t) => (t.enabled = on));
-  ptt.classList.toggle('active', on);
+  $('#ptt').classList.toggle('active', on);
   setStatus(on ? 'speaking' : 'idle', on ? '🔴 You are talking' : 'Connected');
   if (state.channel?.readyState === 'open') state.channel.send(JSON.stringify({ type: 'talk', on }));
 }
 
-// ---- UI helpers -----------------------------------------------------------
-function showFlow(which) {
-  $('#caller').hidden = which !== 'caller';
-  $('#callee').hidden = which !== 'callee';
-}
-function setStatus(kind, text) {
-  $('#dot').className = 'dot ' + kind;
-  $('#status').textContent = text;
-}
+// ---- Wire up UI -----------------------------------------------------------
+$('#btn-create').addEventListener('click', createInvite);
+$('#btn-join').addEventListener('click', () => { showFlow('callee'); setHint(''); });
+$('#gen-answer').addEventListener('click', generateReply);
+$('#connect-btn').addEventListener('click', connectWithReply);
+$('#scan-invite').addEventListener('click', () => scanQR((code) => { $('#offer-in').value = code; generateReply(); }));
+$('#scan-reply').addEventListener('click', () => scanQR((code) => { $('#answer-in').value = code; connectWithReply(); }));
+$('#copy-offer').addEventListener('click', () => copy($('#offer-out')));
+$('#copy-answer').addEventListener('click', () => copy($('#answer-out')));
+$('#enable-audio').addEventListener('click', () => { $('#remote').play().catch(() => {}); $('#enable-audio').hidden = true; });
+$('#hangup').addEventListener('click', () => { try { state.pc?.close(); } catch {} location.reload(); });
+
+const ptt = $('#ptt');
+const down = (e) => { e.preventDefault(); talk(true); };
+const up = (e) => { e.preventDefault(); talk(false); };
+ptt.addEventListener('mousedown', down);
+ptt.addEventListener('touchstart', down, { passive: false });
+window.addEventListener('mouseup', up);
+ptt.addEventListener('touchend', up, { passive: false });
+ptt.addEventListener('touchcancel', up);
+window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && document.activeElement.tagName !== 'TEXTAREA') { e.preventDefault(); talk(true); } });
+window.addEventListener('keyup', (e) => { if (e.code === 'Space') { e.preventDefault(); talk(false); } });
+
+function copy(el) { el.select(); navigator.clipboard?.writeText(el.value).catch(() => document.execCommand('copy')); }
+function showFlow(which) { $('#caller').hidden = which !== 'caller'; $('#callee').hidden = which !== 'callee'; }
+function setStatus(kind, text) { $('#dot').className = 'dot ' + kind; $('#status').textContent = text; }
 function setHint(t) { $('#setup-hint').textContent = t; }
 
-// Capability warning
+// Show in-page scan buttons only where supported.
+if (canScanInPage) { $('#scan-invite').hidden = false; $('#scan-reply').hidden = false; }
+
+// Deep link: a scanned invite opens <origin>/direct.html#o=<code>.
+(function handleDeepLink() {
+  if (!location.hash) return;
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.has('o')) startCalleeFromCode(p.get('o'));
+  else if (p.has('a')) setHint('This is a reply code — open it on the inviting device, or paste it into the invite screen there.');
+})();
+
+// Capability warnings
 if (typeof RTCPeerConnection === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
   setHint('⚠️ This browser does not support WebRTC.');
 } else if (!location.protocol.startsWith('https') && !['localhost', '127.0.0.1'].includes(location.hostname)) {
