@@ -1,5 +1,6 @@
 import express from 'express';
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -26,6 +27,7 @@ app.post('/api/login', (req, res) => {
   res.json({
     ...result,
     channels: allowedChannels({ ...result.user }),
+    iceServers: config.iceServers,
   });
 });
 
@@ -33,7 +35,9 @@ app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 const server = createServer(app);
 
-// --- WebSocket signalling + audio relay ------------------------------------
+// --- WebSocket: signalling, presence, floor control ------------------------
+// Audio does NOT flow through here — it goes peer-to-peer over WebRTC. This
+// socket only carries control messages and relays WebRTC offers/answers/ICE.
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (ws, req) => {
@@ -44,15 +48,14 @@ wss.on('connection', (ws, req) => {
     ws.close(4001, 'unauthorized');
     return;
   }
+  ws.peerId = randomUUID();
   ws.username = principal.username;
   ws.principal = principal;
   ws.channelId = null;
+  rooms.register(ws);
 
   ws.on('message', (data, isBinary) => {
-    if (isBinary) {
-      rooms.relayAudio(ws, data);
-      return;
-    }
+    if (isBinary) return; // no binary audio path anymore
     let msg;
     try {
       msg = JSON.parse(data.toString());
@@ -70,6 +73,9 @@ wss.on('connection', (ws, req) => {
       case 'leave':
         rooms.leave(ws);
         break;
+      case 'signal':
+        if (msg.to) rooms.signal(ws, msg.to, msg.data);
+        break;
       case 'talk_start':
         rooms.requestFloor(ws);
         break;
@@ -81,8 +87,12 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('close', () => rooms.leave(ws));
-  ws.on('error', () => rooms.leave(ws));
+  const cleanup = () => {
+    rooms.leave(ws);
+    rooms.unregister(ws);
+  };
+  ws.on('close', cleanup);
+  ws.on('error', cleanup);
 });
 
 server.listen(config.port, () => {

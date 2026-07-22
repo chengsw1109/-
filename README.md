@@ -4,13 +4,13 @@ A browser-based **push-to-talk walkie-talkie**. Open a web page, sign in, pick a
 channel, and **hold to talk** to everyone else on that channel in real time — no
 app install required.
 
-Works on Android, Windows, Mac, and Linux in modern browsers (Chrome, Edge,
-Firefox). See [iOS Safari](#limitations) below.
+Works on **iPhone/iPad (Safari)**, Android, Windows, Mac, and Linux in modern
+browsers (Chrome, Edge, Firefox, Safari) — audio runs over **WebRTC**.
 
 ## Features
 
 - 🎤 **Push-to-Talk** — hold the button (or the spacebar) to transmit
-- 🔊 **Real-time voice** — ~0.2–1 s latency over WebSocket
+- 🔊 **Real-time voice** — ~0.2–1 s latency, peer-to-peer over WebRTC
 - 👥 **Group channels** — talk to everyone in the same channel
 - 📻 **Half-duplex** — one speaker at a time, like a real walkie-talkie
 - 📍 **Who's talking** indicator and 🟢 **online list**
@@ -33,25 +33,32 @@ Open the page in **two** tabs or devices, sign in as different users, join the
 
 ### Configuration
 
-| Env var      | Default              | Purpose                          |
-| ------------ | -------------------- | -------------------------------- |
-| `PORT`       | `3000`               | HTTP/WS port                     |
-| `JWT_SECRET` | value in config file | overrides the JWT signing secret |
-| `PTT_CONFIG` | `config/users.json`  | path to an alternate users config |
+| Env var                | Default                      | Purpose                            |
+| ---------------------- | ---------------------------- | ---------------------------------- |
+| `PORT`                 | `3000`                       | HTTP/WS port                       |
+| `JWT_SECRET`           | value in config file         | overrides the JWT signing secret   |
+| `PTT_CONFIG`           | `config/users.json`          | path to an alternate users config  |
+| `STUN_URL`             | `stun:stun.l.google.com:19302` | STUN server for WebRTC           |
+| `TURN_URL` (+ `_USERNAME`/`_CREDENTIAL`) | –          | TURN relay for strict NATs         |
 
 ## How it works
 
-The browser captures the mic (`getUserMedia`), encodes Opus/WebM chunks with
-`MediaRecorder`, and streams them as binary WebSocket frames. The server relays
-frames from the current floor holder to the rest of the channel; receivers play a
-continuous stream via Media Source Extensions. The server enforces one speaker
-per channel. See [`CLAUDE.md`](CLAUDE.md) for the full architecture.
+Audio runs **peer-to-peer over WebRTC** (a mesh) — it never passes through the
+server. The WebSocket carries only signalling, presence, and floor control. Each
+member keeps its mic track connected but muted; the server grants the floor to
+one speaker at a time, who unmutes while transmitting. See [`CLAUDE.md`](CLAUDE.md)
+for the full architecture.
+
+> **Note:** WebRTC needs a **secure context** — the mic only works over HTTPS (or
+> `localhost`). Serve behind HTTPS for real devices.
 
 ## Limitations
 
-- **iOS Safari**: live playback may not work (limited audio MediaSource/WebM
-  support). The client warns when it detects this. Full iPhone support is planned
-  via a WebRTC (SFU) path.
+- **Mesh scaling** — full-mesh WebRTC is great for small channels but grows as
+  ~N² connections; large channels need an **SFU** (roadmap). Half-duplex keeps
+  bandwidth modest since only one stream is live at a time.
+- **NAT traversal** — STUN only by default; peers behind symmetric NATs need a
+  **TURN** server (`TURN_URL`).
 - **In-memory state** — resets on restart, single process only.
 - **Demo auth** — plaintext seed passwords (hashed at startup); replace before
   production.

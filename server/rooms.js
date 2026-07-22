@@ -1,12 +1,24 @@
-// In-memory channel state: presence + half-duplex floor control.
+// In-memory channel state: presence, half-duplex floor control, and WebRTC
+// signalling relay.
 //
-// Half-duplex means a channel has at most ONE active speaker at a time, just
-// like a real walkie-talkie. The server is the single source of truth for who
-// holds the floor, which also makes audio routing unambiguous: while a user
-// holds the floor, their binary frames are forwarded to everyone else in the
-// channel and nobody else's frames are accepted.
+// Media (audio) travels peer-to-peer over WebRTC — it does NOT pass through
+// this server. The server's job for media is only to relay the small SDP/ICE
+// signalling messages between peers so they can establish those P2P links.
+//
+// Half-duplex means a channel has at most ONE active speaker at a time, like a
+// real walkie-talkie. Peers keep their mic track connected but muted; the floor
+// holder is the only one allowed to unmute. The server is the source of truth
+// for who holds the floor.
 
 const channels = new Map(); // channelId -> { members:Set<ws>, activeSpeaker:ws|null }
+const byPeerId = new Map(); // peerId -> ws (for addressing signalling messages)
+
+export function register(ws) {
+  byPeerId.set(ws.peerId, ws);
+}
+export function unregister(ws) {
+  byPeerId.delete(ws.peerId);
+}
 
 function getChannel(id) {
   let ch = channels.get(id);
@@ -29,26 +41,44 @@ function broadcast(ch, obj, { except } = {}) {
   }
 }
 
-// De-duplicated list of usernames currently in the channel.
+// De-duplicated list of usernames in the channel (for the online list UI).
 function presence(ch) {
   const names = new Set();
   for (const ws of ch.members) names.add(ws.username);
   return [...names];
 }
 
+// One entry per connection (needed for WebRTC — each connection is a peer).
+function peerList(ch, except) {
+  const out = [];
+  for (const ws of ch.members) {
+    if (ws === except) continue;
+    out.push({ peerId: ws.peerId, username: ws.username });
+  }
+  return out;
+}
+
 export function join(ws, channelId) {
-  leave(ws); // ensure a connection is only ever in one channel
+  leave(ws); // a connection is only ever in one channel
   const ch = getChannel(channelId);
   ch.members.add(ws);
   ws.channelId = channelId;
 
+  // Tell the joiner who is already here so it can open peer connections.
   send(ws, {
     type: 'joined',
     channel: channelId,
+    self: { peerId: ws.peerId, username: ws.username },
+    peers: peerList(ch, ws),
     members: presence(ch),
     speaking: ch.activeSpeaker ? ch.activeSpeaker.username : null,
   });
-  broadcast(ch, { type: 'presence', channel: channelId, members: presence(ch) }, { except: ws });
+  // Tell existing members a new peer arrived.
+  broadcast(
+    ch,
+    { type: 'peer_joined', channel: channelId, peerId: ws.peerId, username: ws.username, members: presence(ch) },
+    { except: ws }
+  );
 }
 
 export function leave(ws) {
@@ -58,13 +88,21 @@ export function leave(ws) {
   ws.channelId = null;
   if (!ch) return;
 
-  // If the leaver held the floor, release it for everyone.
   if (ch.activeSpeaker === ws) {
     ch.activeSpeaker = null;
     broadcast(ch, { type: 'speaking_end', channel: id, user: ws.username });
   }
   ch.members.delete(ws);
-  broadcast(ch, { type: 'presence', channel: id, members: presence(ch) });
+  broadcast(ch, { type: 'peer_left', channel: id, peerId: ws.peerId, username: ws.username, members: presence(ch) });
+}
+
+// Relay a WebRTC signalling message (offer / answer / ICE candidate) to a
+// specific peer in the same channel.
+export function signal(ws, to, data) {
+  const target = byPeerId.get(to);
+  if (target && target.channelId === ws.channelId && target.readyState === target.OPEN) {
+    target.send(JSON.stringify({ type: 'signal', from: ws.peerId, data }));
+  }
 }
 
 // Try to acquire the floor (PTT pressed). Returns true if granted.
@@ -84,20 +122,10 @@ export function requestFloor(ws) {
   return true;
 }
 
-// Release the floor (PTT released or transmission ended).
+// Release the floor (PTT released, tab closed, etc.).
 export function releaseFloor(ws) {
   const ch = channels.get(ws.channelId);
   if (!ch || ch.activeSpeaker !== ws) return;
   ch.activeSpeaker = null;
   broadcast(ch, { type: 'speaking_end', channel: ws.channelId, user: ws.username });
-}
-
-// Forward an audio frame from the current speaker to the rest of the channel.
-export function relayAudio(ws, chunk) {
-  const ch = channels.get(ws.channelId);
-  if (!ch || ch.activeSpeaker !== ws) return; // only the floor holder may stream
-  for (const peer of ch.members) {
-    if (peer === ws) continue;
-    if (peer.readyState === peer.OPEN) peer.send(chunk, { binary: true });
-  }
 }

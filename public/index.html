@@ -39,6 +39,7 @@
       <button id="ptt" class="ptt" disabled>
         <span class="ptt-label">Hold to Talk</span>
       </button>
+      <button id="enable-audio" class="ghost" hidden>🔊 Tap to enable audio</button>
       <p id="hint" class="muted small"></p>
 
       <div class="online">
@@ -47,6 +48,9 @@
       </div>
     </main>
   </section>
+
+  <!-- remote peers' audio elements are attached here -->
+  <div id="audio-sink" hidden></div>
 
   <script src="app.js"></script>
 </body>
