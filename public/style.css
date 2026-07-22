@@ -130,3 +130,26 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 #online-list li.talking { outline: 2px solid var(--red); }
 #online-list li .mic { margin-left: auto; opacity: 0; }
 #online-list li.talking .mic { opacity: 1; }
+
+/* Direct (serverless 1-to-1) mode */
+.badge {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  background: var(--card-2); color: var(--muted);
+  border-radius: 999px; padding: 2px 8px; margin-left: 6px;
+}
+a { color: var(--accent); }
+.btnlink { text-decoration: none; padding: 8px 12px; }
+.panel { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.check input { width: auto; }
+.choice { display: flex; gap: 10px; }
+.choice button { flex: 1; }
+.flow { display: flex; flex-direction: column; gap: 8px; }
+.flow h3 { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+textarea {
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 10px 12px; border-radius: 10px;
+  border: 1px solid #2c3a4a; background: var(--card-2); color: var(--text);
+  resize: vertical; word-break: break-all;
+}
+textarea:focus { outline: 2px solid var(--accent); border-color: var(--accent); }

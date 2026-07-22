@@ -68,6 +68,20 @@ audio: Browser ◄══ RTCPeerConnection (mesh, P2P) ══► Browser
 There is **no database and no media server** — all channel/presence/floor state
 is in memory and resets on restart.
 
+### Two modes
+
+1. **Channels (default, `/`)** — the login + channel walkie-talkie described
+   above. The server does signalling, presence, and floor control; audio is a
+   WebRTC mesh.
+2. **Serverless 1-to-1 (`/direct.html`)** — no login and **no signalling
+   server**. Two browsers connect by manually exchanging base64 offer/answer
+   "codes" (pasted to each other out-of-band). Audio and a PTT control
+   `RTCDataChannel` are pure P2P; the Node server only serves the static file.
+   ICE gathering is non-trickle (bundled into the code); a "LAN only" toggle
+   drops STUN. This mode cannot use TURN, so it can't traverse symmetric NATs —
+   documented honestly in the UI. It shares `style.css` but is otherwise
+   independent of `app.js`/`server`.
+
 ## Repository structure
 
 ```
@@ -80,7 +94,9 @@ browser-ptt/
 ├── public/           # static client (served as-is, no build step)
 │   ├── index.html    # login screen + app screen + hidden audio sink
 │   ├── style.css     # dark UI, big round PTT button
-│   └── app.js        # login, WS signalling, WebRTC mesh, PTT mic toggle, presence UI
+│   ├── app.js        # login, WS signalling, WebRTC mesh, PTT mic toggle, presence UI
+│   ├── direct.html   # serverless 1-to-1 mode (no login)
+│   └── direct.js     # manual offer/answer exchange; P2P audio + PTT data channel
 ├── config/
 │   └── users.json    # jwtSecret, channels, and seed users (DEMO passwords)
 ├── package.json      # ESM ("type":"module"); start / dev scripts

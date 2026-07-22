@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>browser-ptt · Private 1-to-1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <section class="screen">
+    <header class="topbar">
+      <span class="who">🔒 Private 1-to-1 <span class="badge">serverless</span></span>
+      <a href="/" class="ghost btnlink">Back</a>
+    </header>
+
+    <main class="main">
+      <!-- Setup: exchange codes out-of-band -->
+      <div id="setup" class="panel">
+        <p class="muted small">
+          Audio connects <b>directly browser-to-browser</b> over WebRTC — no login and no
+          signalling server. You exchange the two codes below yourselves (paste them to
+          each other over any chat). After connecting, nothing goes through a server.
+        </p>
+
+        <label class="check"><input type="checkbox" id="lan-only" /> LAN only (don't use a STUN server)</label>
+
+        <div class="choice">
+          <button id="btn-create">📤 Create invite</button>
+          <button id="btn-join" class="ghost">📥 I have an invite</button>
+        </div>
+
+        <!-- Caller -->
+        <div id="caller" class="flow" hidden>
+          <h3>1 · Send this invite code to your friend</h3>
+          <textarea id="offer-out" readonly rows="3" placeholder="generating…"></textarea>
+          <button id="copy-offer" class="ghost">Copy invite</button>
+          <h3>2 · Paste the reply code they send back</h3>
+          <textarea id="answer-in" rows="3" placeholder="paste reply code…"></textarea>
+          <button id="connect-btn">Connect</button>
+        </div>
+
+        <!-- Callee -->
+        <div id="callee" class="flow" hidden>
+          <h3>1 · Paste the invite code you received</h3>
+          <textarea id="offer-in" rows="3" placeholder="paste invite code…"></textarea>
+          <button id="gen-answer">Generate reply</button>
+          <h3 id="answer-h" hidden>2 · Send this reply code back</h3>
+          <textarea id="answer-out" readonly rows="3" hidden></textarea>
+          <button id="copy-answer" class="ghost" hidden>Copy reply</button>
+        </div>
+
+        <p id="setup-hint" class="muted small"></p>
+      </div>
+
+      <!-- Connected call -->
+      <div id="call" hidden>
+        <div class="status-card"><div id="dot" class="dot idle"></div><div id="status">Connecting…</div></div>
+        <button id="ptt" class="ptt"><span class="ptt-label">Hold to Talk</span></button>
+        <button id="enable-audio" class="ghost" hidden>🔊 Tap to enable audio</button>
+        <button id="hangup" class="ghost">Hang up</button>
+      </div>
+    </main>
+  </section>
+
+  <audio id="remote" autoplay playsinline></audio>
+  <script src="direct.js"></script>
+</body>
+</html>

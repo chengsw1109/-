@@ -52,6 +52,21 @@ for the full architecture.
 > **Note:** WebRTC needs a **secure context** — the mic only works over HTTPS (or
 > `localhost`). Serve behind HTTPS for real devices.
 
+## Serverless 1-to-1 private call
+
+Open [`/direct.html`](public/direct.html) for a **login-free, signalling-server-free**
+one-to-one mode. One person clicks *Create invite* and sends the generated code to
+the other (over any chat); the other pastes it, generates a *reply code*, and sends
+it back. After that the two browsers are connected **directly** — audio and the PTT
+control channel are pure peer-to-peer, and the server is not involved in the call at
+all (it only served the page).
+
+- **LAN only** checkbox drops STUN entirely (works within one network with zero
+  external servers).
+- Across networks it uses a public STUN server for address discovery only.
+- It **cannot** use a TURN relay, so it won't connect two peers that are both
+  behind symmetric NATs — that genuinely requires a relay server.
+
 ## Limitations
 
 - **Mesh scaling** — full-mesh WebRTC is great for small channels but grows as
