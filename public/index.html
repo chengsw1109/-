@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>browser-ptt · Walkie-Talkie</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Login -->
+  <section id="login" class="screen">
+    <div class="card">
+      <h1>📻 browser-ptt</h1>
+      <p class="muted">Browser walkie-talkie — no app install required.</p>
+      <form id="login-form">
+        <input id="username" placeholder="Username" autocomplete="username" required />
+        <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
+        <button type="submit">Sign in</button>
+      </form>
+      <p id="login-error" class="error" hidden></p>
+      <p class="muted small">Demo accounts: admin/admin123 · alice/alice123 · bob/bob123</p>
+    </div>
+  </section>
+
+  <!-- App -->
+  <section id="app" class="screen" hidden>
+    <header class="topbar">
+      <span class="who">👤 <b id="me"></b></span>
+      <select id="channel-select" aria-label="Channel"></select>
+      <button id="logout" class="ghost">Logout</button>
+    </header>
+
+    <main class="main">
+      <div class="status-card">
+        <div id="status-dot" class="dot idle"></div>
+        <div id="status-text">Idle</div>
+      </div>
+
+      <button id="ptt" class="ptt" disabled>
+        <span class="ptt-label">Hold to Talk</span>
+      </button>
+      <p id="hint" class="muted small"></p>
+
+      <div class="online">
+        <h2>🟢 Online <span id="online-count" class="count">0</span></h2>
+        <ul id="online-list"></ul>
+      </div>
+    </main>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
