@@ -57,22 +57,47 @@ $('#login-form').addEventListener('submit', async (e) => {
       }),
     });
     if (!res.ok) throw new Error((await res.json()).error || '登入失敗');
-    const data = await res.json();
-    state.token = data.token;
-    state.me = data.user;
-    state.channels = data.channels;
-    if (Array.isArray(data.iceServers) && data.iceServers.length) state.iceServers = data.iceServers;
-    enterApp();
+    startSession(await res.json());
   } catch (ex) {
     err.textContent = ex.message;
     err.hidden = false;
   }
 });
 
+// Adopt a login/session payload (token + user + channels + iceServers) and enter
+// the app. The token is remembered so a reload lands straight on the usage
+// screen (no re-typing) and the "re-login" button can reconnect without a form.
+function startSession(data) {
+  state.token = data.token;
+  state.me = data.user;
+  state.channels = data.channels;
+  if (Array.isArray(data.iceServers) && data.iceServers.length) state.iceServers = data.iceServers;
+  if (data.token) localStorage.setItem('ptt-token', data.token);
+  enterApp();
+}
+
+// On page load, if we still have a valid token, skip the login screen.
+(async function restoreSession() {
+  const token = localStorage.getItem('ptt-token');
+  if (!token) return;
+  $('#login').hidden = true; // don't flash the login form while we validate
+  try {
+    const res = await fetch('/api/session', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) throw new Error('session expired');
+    startSession({ token, ...(await res.json()) });
+  } catch {
+    localStorage.removeItem('ptt-token');
+    $('#login').hidden = false;
+  }
+})();
+
+let appEntered = false;
 async function enterApp() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   $('#me').textContent = state.me.username;
+  if (appEntered) { connectWs(); return; } // already wired up — just (re)connect
+  appEntered = true;
 
   const sel = $('#channel-select');
   sel.innerHTML = '';
@@ -106,7 +131,28 @@ async function enterApp() {
   connectWs();
 }
 
-$('#logout').addEventListener('click', () => location.reload());
+$('#logout').addEventListener('click', () => {
+  localStorage.removeItem('ptt-token'); // full logout → login form next time
+  location.reload();
+});
+$('#relogin').addEventListener('click', async () => {
+  const token = state.token || localStorage.getItem('ptt-token');
+  if (!token) { location.reload(); return; }
+  setHint('重新連線中…');
+  try {
+    const res = await fetch('/api/session', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) throw new Error('expired');
+    const data = await res.json();
+    state.channels = data.channels;
+    if (Array.isArray(data.iceServers) && data.iceServers.length) state.iceServers = data.iceServers;
+    reconnectDelay = 1000;
+    connectWs(); // reconnect + rejoin using the stored token, no password
+    setHint('已重新連線');
+  } catch {
+    localStorage.removeItem('ptt-token');
+    location.reload();
+  }
+});
 $('#enable-audio').addEventListener('click', () => {
   for (const { audioEl } of state.peers.values()) audioEl?.play?.().catch(() => {});
   $('#enable-audio').hidden = true;
@@ -155,7 +201,7 @@ function connectWs() {
     send({ type: 'join', channel: ch });
   };
   ws.onclose = (ev) => {
-    if (ev.code === 4001) { setStatus('idle', '已斷線'); setHint('⚠️ 連線授權失效,請重新登入。'); return; }
+    if (ev.code === 4001) { localStorage.removeItem('ptt-token'); setStatus('idle', '已斷線'); setHint('⚠️ 連線授權失效,請重新登入(按登出)。'); return; }
     scheduleReconnect();
   };
   ws.onmessage = (ev) => handleSignal(JSON.parse(ev.data));

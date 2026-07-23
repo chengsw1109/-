@@ -32,6 +32,20 @@ app.post('/api/login', async (req, res) => {
   });
 });
 
+// Restore a session from a still-valid token (no password) — powers auto-login
+// on reload and the "re-login" button, and hands back fresh ICE servers.
+app.get('/api/session', async (req, res) => {
+  const auth = req.headers.authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : (req.query.token || '');
+  const principal = verifyToken(token);
+  if (!principal) return res.status(401).json({ error: '未授權' });
+  res.json({
+    user: { username: principal.username, role: principal.role, channels: principal.channels },
+    channels: allowedChannels(principal),
+    iceServers: await resolveIceServers(),
+  });
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 const server = createServer(app);
