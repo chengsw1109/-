@@ -77,7 +77,8 @@ only served the page). Copy/paste of the codes works too if you'd rather not sca
   ~N² connections; large channels need an **SFU** (roadmap). Half-duplex keeps
   bandwidth modest since only one stream is live at a time.
 - **NAT traversal** — STUN only by default; peers behind symmetric NATs need a
-  **TURN** server (`TURN_URL`).
+  **TURN** server (`TURN_URL`). See **[docs/TURN.md](docs/TURN.md)** for a
+  step-by-step setup (managed provider or self-hosted coturn).
 - **In-memory state** — resets on restart, single process only.
 - **Demo auth** — plaintext seed passwords (hashed at startup); replace before
   production.
