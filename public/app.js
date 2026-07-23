@@ -97,10 +97,11 @@ async function enterApp() {
   if (!CAN_WEBRTC) {
     setHint('⚠️ 此瀏覽器不支援 WebRTC,無法語音。');
   } else {
+    $('#ptt').disabled = false; // enabled even before mic — the press acquires it (iOS)
     if (!location.protocol.startsWith('https') && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
       setHint('⚠️ 麥克風需要 HTTPS(或 localhost)。實機請以 HTTPS 提供服務。');
     }
-    await ensureMic(); // request mic up front so tracks are ready before peers connect
+    await ensureMic(); // desktop fast path; iOS falls back to the PTT-press gesture
   }
   connectWs();
 }
@@ -111,18 +112,21 @@ $('#enable-audio').addEventListener('click', () => {
   $('#enable-audio').hidden = true;
 });
 
+// Returns true if a mic track is available. On iOS Safari getUserMedia must run
+// inside a user gesture, so this may fail at login and succeed later on a PTT
+// press — see requestTalk().
 async function ensureMic() {
-  if (state.localStream) return state.localStream;
+  if (state.localStream) return true;
   try {
     state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     // muted until we hold the floor
     state.localStream.getAudioTracks().forEach((t) => (t.enabled = false));
-    $('#ptt').disabled = false;
+    return true;
   } catch (ex) {
-    state.localStream = null; // listen-only mode
-    setHint('⚠️ 無法使用麥克風(' + ex.name + '),你可以收聽但不能說話。');
+    state.localStream = null; // listen-only for now
+    setHint('⚠️ 尚未取得麥克風(' + ex.name + '):按住「說話」鍵即可允許並啟用。');
+    return false;
   }
-  return state.localStream;
 }
 
 // ---- WebSocket signalling -------------------------------------------------
@@ -332,8 +336,19 @@ window.addEventListener('keydown', (e) => {
 });
 window.addEventListener('keyup', (e) => { if (e.code === 'Space') { e.preventDefault(); endTalk(); } });
 
-function requestTalk() {
-  if (state.hasFloor || !state.localStream) return;
+async function requestTalk() {
+  if (state.hasFloor) return;
+  if (!state.localStream) {
+    // iOS Safari: this press is a user gesture, so getUserMedia can succeed now
+    // even though it failed at login. Acquire, then rebuild the peer connections
+    // so the mic track is negotiated into the SDP (adding a track to an already
+    // negotiated connection would otherwise need a renegotiation the peer misses).
+    const ok = await ensureMic();
+    if (!ok) return;
+    if (state.channel) { teardownPeers(); send({ type: 'join', channel: state.channel }); }
+    setHint('🎤 麥克風已啟用,請再按一次「按住說話」即可開始。');
+    return;
+  }
   send({ type: 'talk_start' }); // server replies talk_granted / talk_denied
 }
 function endTalk() {
