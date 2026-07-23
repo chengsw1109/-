@@ -143,6 +143,7 @@ function joinChannel(channelId) {
   if (!channelId) return;
   state.channel = channelId;
   teardownPeers();
+  $('#chat-log').innerHTML = ''; // chat is per-channel
   send({ type: 'join', channel: channelId });
 }
 
@@ -182,6 +183,9 @@ function handleSignal(msg) {
       state.currentSpeaker = null;
       renderPresence(null, null);
       setStatus('idle', '待機');
+      break;
+    case 'chat':
+      renderChat(msg.user, msg.text, msg.ts);
       break;
     case 'error':
       setHint('⚠️ ' + msg.message);
@@ -340,6 +344,30 @@ function renderPresence(members, speaking = state.currentSpeaker) {
     li.innerHTML = `<span>👤 ${escapeHtml(name)}${name === state.me.username ? '(你)' : ''}</span><span class="mic">🎙️</span>`;
     ul.appendChild(li);
   }
+}
+
+// ---- Text chat (over WebSocket, works even when audio P2P fails) ----------
+$('#chat-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  send({ type: 'chat', text });
+  input.value = '';
+});
+$('#chat-quick').addEventListener('click', () => {
+  send({ type: 'chat', text: '🔈 我聽不到聲音,請把「連線模式」切成「外網」。' });
+});
+
+function renderChat(user, text, ts) {
+  const ul = $('#chat-log');
+  const li = document.createElement('li');
+  const mine = user === state.me.username;
+  if (mine) li.classList.add('mine');
+  const time = new Date(ts || Date.now()).toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit' });
+  li.innerHTML = `<span class="chat-meta">${escapeHtml(user)} · ${time}</span><span class="chat-text">${escapeHtml(text)}</span>`;
+  ul.appendChild(li);
+  ul.scrollTop = ul.scrollHeight;
 }
 
 // ---- Helpers --------------------------------------------------------------

@@ -77,6 +77,9 @@ wss.on('connection', (ws, req) => {
       case 'signal':
         if (msg.to) rooms.signal(ws, msg.to, msg.data);
         break;
+      case 'chat':
+        if (typeof msg.text === 'string') rooms.chat(ws, msg.text);
+        break;
       case 'talk_start':
         rooms.requestFloor(ws);
         break;

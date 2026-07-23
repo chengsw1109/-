@@ -105,6 +105,17 @@ export function signal(ws, to, data) {
   }
 }
 
+// Relay a text chat message to everyone in the channel (sender included).
+// Goes over the WebSocket, NOT WebRTC — so it still works when the P2P audio
+// path is broken (its main purpose: telling a peer to switch to 外網/TURN).
+export function chat(ws, text) {
+  const ch = channels.get(ws.channelId);
+  if (!ch) return;
+  const clean = String(text).replace(/[\u0000-\u001F\u007F]/g, ' ').slice(0, 500).trim();
+  if (!clean) return;
+  broadcast(ch, { type: 'chat', channel: ws.channelId, user: ws.username, text: clean, ts: Date.now() });
+}
+
 // Try to acquire the floor (PTT pressed). Returns true if granted.
 export function requestFloor(ws) {
   const ch = channels.get(ws.channelId);

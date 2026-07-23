@@ -37,9 +37,14 @@ audio: Browser ◄══ RTCPeerConnection (mesh, P2P) ══► Browser
 
 - **Two planes:**
   - *Signalling/control* over WebSocket (JSON): `join`, `leave`, `talk_start`,
-    `talk_stop`, `signal` (WebRTC offer/answer/ICE), plus server → client
-    `joined`, `peer_joined`, `peer_left`, `speaking`, `speaking_end`,
-    `talk_granted`, `talk_denied`.
+    `talk_stop`, `signal` (WebRTC offer/answer/ICE), `chat` (text message), plus
+    server → client `joined`, `peer_joined`, `peer_left`, `speaking`,
+    `speaking_end`, `talk_granted`, `talk_denied`, `chat`.
+  - *Text chat* rides the WebSocket (server-relayed), deliberately **not** a
+    WebRTC data channel — so it still works when the P2P audio path fails (its
+    purpose is to tell a peer to switch to 外網/TURN). Messages are broadcast to
+    the channel, sanitized and length-capped in `rooms.js`, and escaped before
+    DOM insertion in `app.js`.
   - *Media* over WebRTC directly between browsers. No audio bytes pass through
     Node.
 - **WebRTC mesh:** on joining a channel, each member opens an
