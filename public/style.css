@@ -13,6 +13,10 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
+/* The hidden attribute must win over the display rules below (e.g. .screen's
+   display:flex would otherwise override it and show hidden sections). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -113,6 +117,16 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
   box-shadow: 0 0 0 10px rgba(248,81,73,.2);
 }
 .ptt:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Usage guide (help.html) */
+.doc { max-width: 640px; margin: 0 auto; padding: 24px 18px 64px; line-height: 1.7; }
+.doc h1 { font-size: 24px; margin-bottom: 4px; }
+.doc h2 { font-size: 18px; margin-top: 30px; border-bottom: 1px solid #22303f; padding-bottom: 6px; }
+.doc ul, .doc ol { padding-left: 22px; }
+.doc li { margin: 6px 0; }
+.doc code { background: var(--card-2); padding: 1px 6px; border-radius: 6px; font-size: 13px; }
+.doc .tip { background: var(--card); border-radius: 10px; padding: 12px 14px; margin: 12px 0; }
+.doc .back { display: inline-block; margin-bottom: 12px; }
 
 /* Network mode selector */
 .netmode {
