@@ -126,7 +126,14 @@ async function ensureMic() {
 }
 
 // ---- WebSocket signalling -------------------------------------------------
+const seenChat = new Set(); // chat message ids already rendered (de-dup)
+
 function connectWs() {
+  // Close any previous socket so we never end up with two live connections
+  // (which would deliver every broadcast — chat included — more than once).
+  if (state.ws) {
+    try { state.ws.onclose = null; state.ws.onmessage = null; state.ws.close(); } catch {}
+  }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(state.token)}`);
   state.ws = ws;
@@ -144,6 +151,7 @@ function joinChannel(channelId) {
   state.channel = channelId;
   teardownPeers();
   $('#chat-log').innerHTML = ''; // chat is per-channel
+  seenChat.clear();
   send({ type: 'join', channel: channelId });
 }
 
@@ -185,6 +193,10 @@ function handleSignal(msg) {
       setStatus('idle', '待機');
       break;
     case 'chat':
+      if (msg.id) {
+        if (seenChat.has(msg.id)) break; // ignore duplicate delivery
+        seenChat.add(msg.id);
+      }
       renderChat(msg.user, msg.text, msg.ts);
       break;
     case 'error':

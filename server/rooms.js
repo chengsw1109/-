@@ -12,6 +12,7 @@
 
 const channels = new Map(); // channelId -> { members:Set<ws>, activeSpeaker:ws|null }
 const byPeerId = new Map(); // peerId -> ws (for addressing signalling messages)
+let chatSeq = 0; // gives each chat message a stable id for client-side de-dup
 
 export function register(ws) {
   byPeerId.set(ws.peerId, ws);
@@ -108,12 +109,14 @@ export function signal(ws, to, data) {
 // Relay a text chat message to everyone in the channel (sender included).
 // Goes over the WebSocket, NOT WebRTC — so it still works when the P2P audio
 // path is broken (its main purpose: telling a peer to switch to 外網/TURN).
+// Each message carries a unique id so the client can drop duplicates.
 export function chat(ws, text) {
   const ch = channels.get(ws.channelId);
   if (!ch) return;
   const clean = String(text).replace(/[\u0000-\u001F\u007F]/g, ' ').slice(0, 500).trim();
   if (!clean) return;
-  broadcast(ch, { type: 'chat', channel: ws.channelId, user: ws.username, text: clean, ts: Date.now() });
+  const id = `${Date.now()}-${++chatSeq}`;
+  broadcast(ch, { type: 'chat', id, channel: ws.channelId, user: ws.username, text: clean, ts: Date.now() });
 }
 
 // Try to acquire the floor (PTT pressed). Returns true if granted.
