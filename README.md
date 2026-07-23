@@ -39,7 +39,7 @@ Open the page in **two** tabs or devices, sign in as different users, join the
 | `JWT_SECRET`           | value in config file         | overrides the JWT signing secret   |
 | `PTT_CONFIG`           | `config/users.json`          | path to an alternate users config  |
 | `STUN_URL`             | `stun:stun.l.google.com:19302` | STUN server for WebRTC           |
-| `TURN_URL` (+ `_USERNAME`/`_CREDENTIAL`) | –          | TURN relay for strict NATs         |
+| `TURN_URL` (+ `_USERNAME`/`_CREDENTIAL`) | –          | TURN relay for strict NATs (comma-separate multiple URLs) |
 
 ## How it works
 

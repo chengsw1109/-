@@ -13,8 +13,10 @@ const raw = JSON.parse(readFileSync(configPath, 'utf8'));
 function iceServers() {
   const servers = [{ urls: process.env.STUN_URL || 'stun:stun.l.google.com:19302' }];
   if (process.env.TURN_URL) {
+    // TURN_URL may be a comma-separated list (e.g. udp + tcp + tls/443) so that
+    // clients behind strict NATs can fall back to whichever transport gets out.
     servers.push({
-      urls: process.env.TURN_URL,
+      urls: process.env.TURN_URL.split(',').map((s) => s.trim()).filter(Boolean),
       username: process.env.TURN_USERNAME,
       credential: process.env.TURN_CREDENTIAL,
     });

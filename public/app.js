@@ -189,7 +189,11 @@ function createPeer(peerId, username) {
   };
   pc.ontrack = (e) => attachAudio(peerId, e.streams[0]);
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') removePeer(peerId);
+    const s = pc.connectionState;
+    // Media is P2P; make a failed path visible instead of silently muted.
+    if (s === 'connected') { if ($('#hint').textContent.includes('語音')) setHint(''); }
+    else if (s === 'failed') setHint('⚠️ 語音無法連線,對方網路可能需要 TURN 中繼伺服器(見說明)。');
+    if (s === 'failed' || s === 'closed') removePeer(peerId);
   };
   return entry;
 }
