@@ -129,10 +129,13 @@ async function ensureMic() {
   }
 }
 
-// ---- WebSocket signalling -------------------------------------------------
+// ---- WebSocket signalling (with auto-reconnect) ---------------------------
 const seenChat = new Set(); // chat message ids already rendered (de-dup)
+let reconnectTimer = null;
+let reconnectDelay = 1000; // backoff, reset on a successful open
 
 function connectWs() {
+  clearTimeout(reconnectTimer);
   // Close any previous socket so we never end up with two live connections
   // (which would deliver every broadcast — chat included — more than once).
   if (state.ws) {
@@ -141,10 +144,46 @@ function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(state.token)}`);
   state.ws = ws;
-  ws.onopen = () => joinChannel($('#channel-select').value);
-  ws.onclose = () => setStatus('idle', '已斷線');
+  ws.onopen = () => {
+    reconnectDelay = 1000;
+    setHint('');
+    // Rejoin the current channel and rebuild peer connections (they died with
+    // the old socket). Keep the chat log — don't clear it on a reconnect.
+    const ch = $('#channel-select').value;
+    state.channel = ch;
+    teardownPeers();
+    send({ type: 'join', channel: ch });
+  };
+  ws.onclose = (ev) => {
+    if (ev.code === 4001) { setStatus('idle', '已斷線'); setHint('⚠️ 連線授權失效,請重新登入。'); return; }
+    scheduleReconnect();
+  };
   ws.onmessage = (ev) => handleSignal(JSON.parse(ev.data));
 }
+
+function scheduleReconnect() {
+  clearTimeout(reconnectTimer);
+  setStatus('idle', `已斷線,${Math.round(reconnectDelay / 1000)} 秒後自動重連…`);
+  reconnectTimer = setTimeout(() => {
+    setStatus('idle', '重新連線中…');
+    connectWs();
+  }, reconnectDelay);
+  reconnectDelay = Math.min(reconnectDelay * 2, 15000); // cap at 15s
+}
+
+// Reconnect immediately when the network returns or the tab/phone wakes,
+// instead of waiting out the backoff timer.
+function maybeReconnect() {
+  if (!state.token) return; // not logged in yet
+  const rs = state.ws?.readyState;
+  if (rs === WebSocket.OPEN || rs === WebSocket.CONNECTING) return;
+  reconnectDelay = 1000;
+  connectWs();
+}
+window.addEventListener('online', maybeReconnect);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') maybeReconnect();
+});
 
 function send(obj) {
   if (state.ws?.readyState === WebSocket.OPEN) state.ws.send(JSON.stringify(obj));
