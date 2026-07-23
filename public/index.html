@@ -47,9 +47,6 @@
         </div>
       </div>
 
-      <button id="ptt" class="ptt" disabled>
-        <span class="ptt-label">按住說話</span>
-      </button>
       <button id="enable-audio" class="ghost" hidden>🔊 點一下開啟聲音</button>
       <p id="hint" class="muted small"></p>
 
@@ -68,7 +65,8 @@
           <ul id="chat-log"></ul>
           <form id="chat-form">
             <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
-            <button type="submit">送出</button>
+            <button type="submit" class="send">送出</button>
+            <button id="ptt" type="button" class="ptt" disabled>🎤 按住說話</button>
           </form>
         </div>
       </div>

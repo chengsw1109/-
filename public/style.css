@@ -108,26 +108,27 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 .dot.speaking { background: var(--red); box-shadow: 0 0 0 4px rgba(248,81,73,.25); }
 .dot.receiving { background: var(--green); box-shadow: 0 0 0 4px rgba(46,160,67,.25); }
 
-/* PTT button — smaller so the whole screen fits on a phone */
+/* PTT button — a pill in the bottom row, right of 送出, for one-handed use */
 .ptt {
   flex: 0 0 auto;
-  width: clamp(104px, 30vw, 150px);
-  height: clamp(104px, 30vw, 150px);
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 40%, #3a4b60, #223041);
-  border: 5px solid #2c3a4a;
+  min-width: 116px;
+  padding: 0 16px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 0%, #3a4b60, #223041);
+  border: 2px solid #2c3a4a;
   color: var(--text);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
+  white-space: nowrap;
   user-select: none;
   touch-action: none;
-  transition: transform .08s ease, box-shadow .08s ease, background .1s;
+  transition: transform .06s ease, background .1s, border-color .1s;
 }
 .ptt:not(:disabled):active,
 .ptt.active {
-  transform: scale(0.96);
-  background: radial-gradient(circle at 50% 40%, #f85149, #b42318);
-  box-shadow: 0 0 0 10px rgba(248,81,73,.2);
+  transform: scale(0.97);
+  background: radial-gradient(circle at 50% 0%, #f85149, #b42318);
+  border-color: #f85149;
 }
 .ptt:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -195,8 +196,10 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 #chat-log li.mine { align-self: flex-end; background: #2b4a6f; }
 .chat-meta { font-size: 11px; color: var(--muted); }
 .chat-text { word-break: break-word; white-space: pre-wrap; }
-#chat-form { display: flex; gap: 8px; }
+/* row (override the generic form{flex-direction:column} used by the login form) */
+#chat-form { display: flex; flex-direction: row; gap: 8px; align-items: stretch; min-height: 48px; margin: 0; }
 #chat-form input { flex: 1; min-width: 0; }
+#chat-form .send { flex: 0 0 auto; padding: 0 12px; }
 #chat-form button { flex: 0 0 auto; }
 
 /* Direct (serverless 1-to-1) mode */
