@@ -114,6 +114,13 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 }
 .ptt:disabled { opacity: .5; cursor: not-allowed; }
 
+/* Network mode selector */
+.netmode {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); padding: 8px 14px; border-radius: 999px;
+}
+.netmode select { padding: 6px 10px; border-radius: 8px; }
+
 /* Online list */
 .online { width: 100%; }
 .online h2 { font-size: 15px; display: flex; align-items: center; gap: 8px; }

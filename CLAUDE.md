@@ -60,7 +60,11 @@ audio: Browser ◄══ RTCPeerConnection (mesh, P2P) ══► Browser
   list is by username (deduped); WebRTC routing is by `peerId`.
 - **ICE:** the client uses the `iceServers` returned at login. Default is Google
   STUN; a TURN server can be added via env (`TURN_URL`/`TURN_USERNAME`/
-  `TURN_CREDENTIAL`).
+  `TURN_CREDENTIAL`, or a dynamic `TURN_CREDENTIALS_URL`). A **內網/外網 (LAN/WAN)
+  toggle** in the channel UI lets the client pick per session: LAN mode uses an
+  **empty** `iceServers` (host candidates only) so it never touches STUN/TURN or
+  the TURN quota; WAN mode uses the server-provided STUN+TURN. The choice is kept
+  in `localStorage` and switching rebuilds the peer connections.
 - **Auth:** `POST /api/login` verifies seed users and returns a JWT (+ allowed
   channels + ICE config). The WS authenticates via `?token=` in the URL. Channel
   access is per user (`channels` allowlist, or `"*"`).

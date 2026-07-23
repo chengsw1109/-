@@ -23,12 +23,20 @@ const state = {
   channel: null,
   ws: null,
   iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+  // 'lan' = 內網: no STUN/TURN, host candidates only → zero external traffic,
+  // never touches the TURN quota. 'wan' = 外網: use the server's STUN + TURN.
+  netMode: localStorage.getItem('ptt-net-mode') || 'lan',
   localStream: null,
   selfPeerId: null,
   peers: new Map(), // peerId -> { pc, audioEl, pendingIce:[], haveRemote:bool, username }
   hasFloor: false,
   currentSpeaker: null,
 };
+
+// ICE config actually used for peer connections, per the selected mode.
+function activeIceServers() {
+  return state.netMode === 'lan' ? [] : state.iceServers;
+}
 
 // ---- Capability check -----------------------------------------------------
 const CAN_WEBRTC = typeof RTCPeerConnection !== 'undefined' &&
@@ -75,6 +83,16 @@ async function enterApp() {
     sel.appendChild(opt);
   }
   sel.addEventListener('change', () => joinChannel(sel.value));
+
+  const modeSel = $('#net-mode');
+  modeSel.value = state.netMode;
+  modeSel.addEventListener('change', () => {
+    state.netMode = modeSel.value;
+    localStorage.setItem('ptt-net-mode', state.netMode);
+    setHint(state.netMode === 'lan' ? '已切換為內網（區網直連，不使用 TURN）' : '已切換為外網（需要時用 TURN）');
+    // Rebuild peer connections so the new ICE setting takes effect.
+    if (state.channel) { teardownPeers(); send({ type: 'join', channel: state.channel }); }
+  });
 
   if (!CAN_WEBRTC) {
     setHint('⚠️ 此瀏覽器不支援 WebRTC,無法語音。');
@@ -173,7 +191,7 @@ function handleSignal(msg) {
 
 // ---- WebRTC mesh ----------------------------------------------------------
 function createPeer(peerId, username) {
-  const pc = new RTCPeerConnection({ iceServers: state.iceServers });
+  const pc = new RTCPeerConnection({ iceServers: activeIceServers() });
   const entry = { pc, audioEl: null, pendingIce: [], haveRemote: false, username };
   state.peers.set(peerId, entry);
 
@@ -192,7 +210,11 @@ function createPeer(peerId, username) {
     const s = pc.connectionState;
     // Media is P2P; make a failed path visible instead of silently muted.
     if (s === 'connected') { if ($('#hint').textContent.includes('語音')) setHint(''); }
-    else if (s === 'failed') setHint('⚠️ 語音無法連線,對方網路可能需要 TURN 中繼伺服器(見說明)。');
+    else if (s === 'failed') {
+      setHint(state.netMode === 'lan'
+        ? '⚠️ 語音無法連線。若對方不在同一區網,請把「連線模式」切成「外網」。'
+        : '⚠️ 語音無法連線,對方網路可能需要 TURN 中繼伺服器(見說明)。');
+    }
     if (s === 'failed' || s === 'closed') removePeer(peerId);
   };
   return entry;

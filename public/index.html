@@ -37,6 +37,14 @@
         <div id="status-text">待機</div>
       </div>
 
+      <div class="netmode">
+        <span class="muted small">連線模式</span>
+        <select id="net-mode" aria-label="連線模式">
+          <option value="lan">內網（區網直連 · 不用 TURN）</option>
+          <option value="wan">外網（跨網路 · 需要時用 TURN）</option>
+        </select>
+      </div>
+
       <button id="ptt" class="ptt" disabled>
         <span class="ptt-label">按住說話</span>
       </button>
