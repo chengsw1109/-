@@ -165,8 +165,9 @@ async function ensureMic() {
   if (state.localStream) return true;
   try {
     state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    // muted until we hold the floor
-    state.localStream.getAudioTracks().forEach((t) => (t.enabled = false));
+    // Keep the track enabled; half-duplex muting is done per sender via
+    // replaceTrack() — reliable on iOS Safari, unlike toggling track.enabled
+    // (which iOS may not resume, so the peer never hears you).
     return true;
   } catch (ex) {
     state.localStream = null; // listen-only for now
@@ -297,11 +298,18 @@ function handleSignal(msg) {
 // ---- WebRTC mesh ----------------------------------------------------------
 function createPeer(peerId, username) {
   const pc = new RTCPeerConnection({ iceServers: activeIceServers() });
-  const entry = { pc, audioEl: null, pendingIce: [], haveRemote: false, username };
+  const entry = { pc, audioEl: null, pendingIce: [], haveRemote: false, username, audioSender: null };
   state.peers.set(peerId, entry);
 
   if (state.localStream) {
-    for (const track of state.localStream.getTracks()) pc.addTrack(track, state.localStream);
+    for (const track of state.localStream.getTracks()) {
+      const sender = pc.addTrack(track, state.localStream);
+      if (track.kind === 'audio') {
+        entry.audioSender = sender;
+        // Half-duplex: start muted (send no track) unless we hold the floor.
+        if (!state.hasFloor) sender.replaceTrack(null).catch(() => {});
+      }
+    }
   } else {
     // listen-only: still need an audio m-line to receive the remote track
     pc.addTransceiver('audio', { direction: 'recvonly' });
@@ -402,7 +410,13 @@ function teardownPeers() {
 // ---- Floor / mic toggle ---------------------------------------------------
 function setFloor(on) {
   state.hasFloor = on;
-  state.localStream?.getAudioTracks().forEach((t) => (t.enabled = on));
+  // Unmute/mute by attaching or detaching the real track on each peer's sender
+  // (replaceTrack) rather than toggling track.enabled — the latter is unreliable
+  // on iOS Safari, which is why the peer couldn't hear an iPhone.
+  const track = state.localStream?.getAudioTracks()[0] || null;
+  for (const entry of state.peers.values()) {
+    if (entry.audioSender) entry.audioSender.replaceTrack(on ? track : null).catch(() => {});
+  }
   $('#ptt').classList.toggle('active', on);
   setStatus(on ? 'speaking' : 'idle', on ? '🔴 你正在說話' : '待機');
 }
