@@ -136,8 +136,9 @@ the other. (`localhost` is a secure context, so the mic works without HTTPS.)
 reverse proxy / tunnel for phones and remote peers. Peers behind strict
 (symmetric) NATs also need a **TURN** server; STUN alone won't connect them.
 
-**Demo accounts** (from `config/users.json`): `admin/admin123` (all channels),
-`alice/alice123` (general, team-a), `bob/bob123` (general, team-b).
+**Demo accounts** (from `config/users.json`): `david/d123` (admin, all channels),
+`maggie/m123` (all channels). The UI is Traditional Chinese (`zh-Hant`); channel
+display names live in `config/users.json` (`一般`, `A 組`, `B 組`).
 
 **Config / env overrides** (read in `server/config.js`): `PORT`, `JWT_SECRET`,
 `PTT_CONFIG` (alternate users config path), `STUN_URL`, and
@@ -145,7 +146,7 @@ reverse proxy / tunnel for phones and remote peers. Peers behind strict
 
 There is **no test suite, linter, or build step** yet. To sanity-check the
 server manually: `curl localhost:3000/api/health` and
-`curl -X POST localhost:3000/api/login -H 'Content-Type: application/json' -d '{"username":"alice","password":"alice123"}'`.
+`curl -X POST localhost:3000/api/login -H 'Content-Type: application/json' -d '{"username":"david","password":"d123"}'`.
 
 ## Key conventions
 

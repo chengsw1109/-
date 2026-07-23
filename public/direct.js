@@ -70,7 +70,7 @@ function renderQR(container, text) {
   container.hidden = false;
   let qr;
   try { qr = QR.encode(text, 'L'); }
-  catch { container.innerHTML = '<p class="muted small">Code too long for a QR — use copy/paste.</p>'; return; }
+  catch { container.innerHTML = '<p class="muted small">連線碼太長,無法產生 QR — 請改用複製貼上。</p>'; return; }
   const n = qr.size, quiet = 4, dim = n + quiet * 2;
   let path = '';
   for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.getModule(x, y)) path += `M${x + quiet} ${y + quiet}h1v1h-1z`;
@@ -109,7 +109,7 @@ function makePc() {
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
     if (s === 'connected') showCall();
-    else if (s === 'failed' || s === 'disconnected' || s === 'closed') setStatus('idle', 'Disconnected');
+    else if (s === 'failed' || s === 'disconnected' || s === 'closed') setStatus('idle', '已斷線');
   };
   state.pc = pc;
   return pc;
@@ -118,7 +118,7 @@ function setupChannel(dc) {
   state.channel = dc;
   dc.onmessage = (e) => {
     let m; try { m = JSON.parse(e.data); } catch { return; }
-    if (m.type === 'talk') setStatus(m.on ? 'receiving' : 'idle', m.on ? '🔊 Peer is talking' : 'Connected');
+    if (m.type === 'talk') setStatus(m.on ? 'receiving' : 'idle', m.on ? '🔊 對方正在說話' : '已連線');
   };
 }
 
@@ -145,9 +145,9 @@ async function connectWithReply() {
   try {
     const answer = await unpackCode($('#answer-in').value);
     await state.pc.setRemoteDescription(answer);
-    setHint('Connecting…');
+    setHint('連線中…');
   } catch (ex) {
-    setHint('⚠️ Bad reply code: ' + ex.message);
+    setHint('⚠️ 回覆碼無效:' + ex.message);
   }
 }
 
@@ -168,15 +168,15 @@ async function generateReply() {
     $('#answer-h').hidden = false;
     $('#answer-manual').hidden = false;
     renderQR($('#answer-qr'), deepLink('a', code));
-    setHint('Reply ready — let them scan it (or send the code). Then you connect automatically.');
+    setHint('回覆已就緒 — 讓對方掃描(或把碼傳給對方)。之後會自動連線。');
   } catch (ex) {
-    setHint('⚠️ Bad invite code: ' + ex.message);
+    setHint('⚠️ 邀請碼無效:' + ex.message);
   }
 }
 function startCalleeFromCode(code) {
   showFlow('callee');
   $('#offer-in').value = code;
-  setHint('Invite loaded — tap "Generate reply".');
+  setHint('已載入邀請 — 請點「產生回覆」。');
 }
 
 // ---- In-page QR scanning (BarcodeDetector; not on iOS Safari) --------------
@@ -189,10 +189,10 @@ function codeFromScan(raw) {
   return raw.trim();
 }
 async function scanQR(onResult) {
-  if (!canScanInPage) { setHint('This browser can’t scan in-page — paste the code instead.'); return; }
+  if (!canScanInPage) { setHint('此瀏覽器無法頁內掃描 — 請改用貼上連線碼。'); return; }
   let stream;
   try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
-  catch (e) { setHint('Camera unavailable: ' + e.message); return; }
+  catch (e) { setHint('無法使用相機:' + e.message); return; }
   const det = new BarcodeDetector({ formats: ['qr_code'] });
   const overlay = $('#scanner'), video = $('#scan-video');
   overlay.hidden = false; video.srcObject = stream; await video.play().catch(() => {});
@@ -214,14 +214,14 @@ async function scanQR(onResult) {
 function showCall() {
   $('#setup').hidden = true;
   $('#call').hidden = false;
-  setStatus('idle', 'Connected');
+  setStatus('idle', '已連線');
 }
 function talk(on) {
   if (on === state.hasFloor || !state.localStream) return;
   state.hasFloor = on;
   state.localStream.getAudioTracks().forEach((t) => (t.enabled = on));
   $('#ptt').classList.toggle('active', on);
-  setStatus(on ? 'speaking' : 'idle', on ? '🔴 You are talking' : 'Connected');
+  setStatus(on ? 'speaking' : 'idle', on ? '🔴 你正在說話' : '已連線');
   if (state.channel?.readyState === 'open') state.channel.send(JSON.stringify({ type: 'talk', on }));
 }
 
@@ -261,12 +261,12 @@ if (canScanInPage) { $('#scan-invite').hidden = false; $('#scan-reply').hidden =
   if (!location.hash) return;
   const p = new URLSearchParams(location.hash.slice(1));
   if (p.has('o')) startCalleeFromCode(p.get('o'));
-  else if (p.has('a')) setHint('This is a reply code — open it on the inviting device, or paste it into the invite screen there.');
+  else if (p.has('a')) setHint('這是回覆碼 — 請在發起邀請的裝置上開啟,或貼到那台裝置的邀請畫面。');
 })();
 
-// Capability warnings
+// 能力偵測警告
 if (typeof RTCPeerConnection === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-  setHint('⚠️ This browser does not support WebRTC.');
+  setHint('⚠️ 此瀏覽器不支援 WebRTC。');
 } else if (!location.protocol.startsWith('https') && !['localhost', '127.0.0.1'].includes(location.hostname)) {
-  setHint('⚠️ Microphone needs HTTPS (or localhost). Serve over HTTPS on real devices.');
+  setHint('⚠️ 麥克風需要 HTTPS(或 localhost)。實機請以 HTTPS 提供服務。');
 }

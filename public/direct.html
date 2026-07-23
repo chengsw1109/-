@@ -1,79 +1,79 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>browser-ptt · Private 1-to-1</title>
+  <title>browser-ptt · 1 對 1 私密通話</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <section class="screen">
     <header class="topbar">
-      <span class="who">🔒 Private 1-to-1 <span class="badge">serverless</span></span>
-      <a href="/" class="ghost btnlink">Back</a>
+      <span class="who">🔒 1 對 1 私密通話 <span class="badge">無伺服器</span></span>
+      <a href="/" class="ghost btnlink">返回</a>
     </header>
 
     <main class="main">
-      <!-- Setup: exchange codes out-of-band -->
+      <!-- 設定:私下交換連線碼 -->
       <div id="setup" class="panel">
         <p class="muted small">
-          Audio connects <b>directly browser-to-browser</b> over WebRTC — no login and no
-          signalling server. Share the codes below by <b>scanning the QR</b> (open your
-          phone camera) or copy/paste. After connecting, nothing goes through a server.
+          語音透過 WebRTC <b>瀏覽器對瀏覽器直連</b> — 免登入、無 signaling 伺服器。
+          用<b>掃描 QR</b>(打開手機相機)或複製貼上把下方的碼傳給對方。連上之後,
+          全程不經過任何伺服器。
         </p>
 
-        <label class="check"><input type="checkbox" id="lan-only" /> LAN only (don't use a STUN server)</label>
+        <label class="check"><input type="checkbox" id="lan-only" /> 僅限區域網路(不使用 STUN 伺服器)</label>
 
         <div class="choice">
-          <button id="btn-create">📤 Create invite</button>
-          <button id="btn-join" class="ghost">📥 I have an invite</button>
+          <button id="btn-create">📤 建立邀請</button>
+          <button id="btn-join" class="ghost">📥 我有邀請碼</button>
         </div>
 
-        <!-- Caller -->
+        <!-- 發起方 -->
         <div id="caller" class="flow" hidden>
-          <h3>1 · Let your friend scan this invite</h3>
+          <h3>1 · 讓對方掃描這個邀請</h3>
           <div id="offer-qr" class="qr"></div>
-          <details><summary class="muted small">…or send the code manually</summary>
-            <textarea id="offer-out" readonly rows="3" placeholder="generating…"></textarea>
-            <button id="copy-offer" class="ghost">Copy invite code</button>
+          <details><summary class="muted small">…或改用手動傳送連線碼</summary>
+            <textarea id="offer-out" readonly rows="3" placeholder="產生中…"></textarea>
+            <button id="copy-offer" class="ghost">複製邀請碼</button>
           </details>
-          <h3>2 · Get their reply</h3>
-          <button id="scan-reply" class="ghost" hidden>📷 Scan reply QR</button>
-          <textarea id="answer-in" rows="3" placeholder="…or paste reply code"></textarea>
-          <button id="connect-btn">Connect</button>
+          <h3>2 · 取得對方的回覆</h3>
+          <button id="scan-reply" class="ghost" hidden>📷 掃描回覆 QR</button>
+          <textarea id="answer-in" rows="3" placeholder="…或貼上回覆碼"></textarea>
+          <button id="connect-btn">連線</button>
         </div>
 
-        <!-- Callee -->
+        <!-- 接收方 -->
         <div id="callee" class="flow" hidden>
-          <h3>1 · Scan or paste the invite</h3>
-          <button id="scan-invite" class="ghost" hidden>📷 Scan invite QR</button>
-          <textarea id="offer-in" rows="3" placeholder="paste invite code…"></textarea>
-          <button id="gen-answer">Generate reply</button>
-          <h3 id="answer-h" hidden>2 · Let them scan your reply</h3>
+          <h3>1 · 掃描或貼上邀請</h3>
+          <button id="scan-invite" class="ghost" hidden>📷 掃描邀請 QR</button>
+          <textarea id="offer-in" rows="3" placeholder="貼上邀請碼…"></textarea>
+          <button id="gen-answer">產生回覆</button>
+          <h3 id="answer-h" hidden>2 · 讓對方掃描你的回覆</h3>
           <div id="answer-qr" class="qr" hidden></div>
-          <details id="answer-manual" hidden><summary class="muted small">…or send the code manually</summary>
+          <details id="answer-manual" hidden><summary class="muted small">…或改用手動傳送連線碼</summary>
             <textarea id="answer-out" readonly rows="3"></textarea>
-            <button id="copy-answer" class="ghost">Copy reply code</button>
+            <button id="copy-answer" class="ghost">複製回覆碼</button>
           </details>
         </div>
 
         <p id="setup-hint" class="muted small"></p>
       </div>
 
-      <!-- Connected call -->
+      <!-- 已連線通話 -->
       <div id="call" hidden>
-        <div class="status-card"><div id="dot" class="dot idle"></div><div id="status">Connecting…</div></div>
-        <button id="ptt" class="ptt"><span class="ptt-label">Hold to Talk</span></button>
-        <button id="enable-audio" class="ghost" hidden>🔊 Tap to enable audio</button>
-        <button id="hangup" class="ghost">Hang up</button>
+        <div class="status-card"><div id="dot" class="dot idle"></div><div id="status">連線中…</div></div>
+        <button id="ptt" class="ptt"><span class="ptt-label">按住說話</span></button>
+        <button id="enable-audio" class="ghost" hidden>🔊 點一下開啟聲音</button>
+        <button id="hangup" class="ghost">掛斷</button>
       </div>
     </main>
   </section>
 
-  <!-- In-page QR scanner (used where BarcodeDetector is supported) -->
+  <!-- 頁內 QR 掃描器(支援 BarcodeDetector 時使用) -->
   <div id="scanner" class="scanner" hidden>
     <video id="scan-video" playsinline muted></video>
-    <button id="scan-cancel" class="ghost">Cancel</button>
+    <button id="scan-cancel" class="ghost">取消</button>
   </div>
 
   <audio id="remote" autoplay playsinline></audio>

@@ -1,13 +1,12 @@
 {
   "jwtSecret": "dev-secret-change-me-in-production",
   "channels": [
-    { "id": "general", "name": "General" },
-    { "id": "team-a", "name": "Team A" },
-    { "id": "team-b", "name": "Team B" }
+    { "id": "general", "name": "一般" },
+    { "id": "team-a", "name": "A 組" },
+    { "id": "team-b", "name": "B 組" }
   ],
   "users": [
-    { "username": "admin", "password": "admin123", "role": "admin", "channels": ["*"] },
-    { "username": "alice", "password": "alice123", "role": "user", "channels": ["general", "team-a"] },
-    { "username": "bob",   "password": "bob123",   "role": "user", "channels": ["general", "team-b"] }
+    { "username": "david",  "password": "d123", "role": "admin", "channels": ["*"] },
+    { "username": "maggie", "password": "m123", "role": "user",  "channels": ["*"] }
   ]
 }

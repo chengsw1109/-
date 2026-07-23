@@ -48,7 +48,7 @@ $('#login-form').addEventListener('submit', async (e) => {
         password: $('#password').value,
       }),
     });
-    if (!res.ok) throw new Error((await res.json()).error || 'login failed');
+    if (!res.ok) throw new Error((await res.json()).error || '登入失敗');
     const data = await res.json();
     state.token = data.token;
     state.me = data.user;
@@ -77,10 +77,10 @@ async function enterApp() {
   sel.addEventListener('change', () => joinChannel(sel.value));
 
   if (!CAN_WEBRTC) {
-    setHint('⚠️ This browser does not support WebRTC. Voice will not work.');
+    setHint('⚠️ 此瀏覽器不支援 WebRTC,無法語音。');
   } else {
     if (!location.protocol.startsWith('https') && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      setHint('⚠️ Microphone requires HTTPS (or localhost). Serve over HTTPS on real devices.');
+      setHint('⚠️ 麥克風需要 HTTPS(或 localhost)。實機請以 HTTPS 提供服務。');
     }
     await ensureMic(); // request mic up front so tracks are ready before peers connect
   }
@@ -102,7 +102,7 @@ async function ensureMic() {
     $('#ptt').disabled = false;
   } catch (ex) {
     state.localStream = null; // listen-only mode
-    setHint('⚠️ Microphone unavailable (' + ex.name + ') — you can listen but not talk.');
+    setHint('⚠️ 無法使用麥克風(' + ex.name + '),你可以收聽但不能說話。');
   }
   return state.localStream;
 }
@@ -113,7 +113,7 @@ function connectWs() {
   const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(state.token)}`);
   state.ws = ws;
   ws.onopen = () => joinChannel($('#channel-select').value);
-  ws.onclose = () => setStatus('idle', 'Disconnected');
+  ws.onclose = () => setStatus('idle', '已斷線');
   ws.onmessage = (ev) => handleSignal(JSON.parse(ev.data));
 }
 
@@ -133,7 +133,7 @@ function handleSignal(msg) {
     case 'joined':
       state.selfPeerId = msg.self.peerId;
       renderPresence(msg.members, msg.speaking);
-      setStatus(msg.speaking ? 'receiving' : 'idle', msg.speaking ? `🔊 ${msg.speaking} is talking` : 'Idle');
+      setStatus(msg.speaking ? 'receiving' : 'idle', msg.speaking ? `🔊 ${msg.speaking} 正在說話` : '待機');
       // Connect to everyone already here. Deterministic initiator avoids glare:
       // the peer with the greater id sends the offer.
       for (const p of msg.peers) connectToPeer(p.peerId, p.username, state.selfPeerId > p.peerId);
@@ -153,17 +153,17 @@ function handleSignal(msg) {
       setFloor(true);
       break;
     case 'talk_denied':
-      setStatus('idle', `📢 ${msg.by} is talking`);
+      setStatus('idle', `📢 ${msg.by} 正在說話`);
       break;
     case 'speaking':
       state.currentSpeaker = msg.user;
       renderPresence(null, msg.user);
-      setStatus('receiving', `🔊 ${msg.user} is talking`);
+      setStatus('receiving', `🔊 ${msg.user} 正在說話`);
       break;
     case 'speaking_end':
       state.currentSpeaker = null;
       renderPresence(null, null);
-      setStatus('idle', 'Idle');
+      setStatus('idle', '待機');
       break;
     case 'error':
       setHint('⚠️ ' + msg.message);
@@ -273,7 +273,7 @@ function setFloor(on) {
   state.hasFloor = on;
   state.localStream?.getAudioTracks().forEach((t) => (t.enabled = on));
   $('#ptt').classList.toggle('active', on);
-  setStatus(on ? 'speaking' : 'idle', on ? '🔴 You are talking' : 'Idle');
+  setStatus(on ? 'speaking' : 'idle', on ? '🔴 你正在說話' : '待機');
 }
 
 // ---- PTT button -----------------------------------------------------------
@@ -311,7 +311,7 @@ function renderPresence(members, speaking = state.currentSpeaker) {
   for (const name of lastMembers) {
     const li = document.createElement('li');
     if (name === speaking) li.classList.add('talking');
-    li.innerHTML = `<span>👤 ${escapeHtml(name)}${name === state.me.username ? ' (you)' : ''}</span><span class="mic">🎙️</span>`;
+    li.innerHTML = `<span>👤 ${escapeHtml(name)}${name === state.me.username ? '(你)' : ''}</span><span class="mic">🎙️</span>`;
     ul.appendChild(li);
   }
 }

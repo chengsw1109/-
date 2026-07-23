@@ -28,7 +28,7 @@ npm start
 Open the page in **two** tabs or devices, sign in as different users, join the
 **same** channel, and hold PTT in one to talk to the other.
 
-**Demo accounts:** `admin/admin123`, `alice/alice123`, `bob/bob123`
+**Demo accounts:** `david/d123`, `maggie/m123`
 (configure in [`config/users.json`](config/users.json)).
 
 ### Configuration

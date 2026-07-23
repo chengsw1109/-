@@ -20,10 +20,10 @@ app.use(express.static(publicDir));
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
-    return res.status(400).json({ error: 'username and password required' });
+    return res.status(400).json({ error: '請輸入帳號與密碼' });
   }
   const result = login(username, password);
-  if (!result) return res.status(401).json({ error: 'invalid credentials' });
+  if (!result) return res.status(401).json({ error: '帳號或密碼錯誤' });
   res.json({
     ...result,
     channels: allowedChannels({ ...result.user }),
@@ -65,7 +65,7 @@ wss.on('connection', (ws, req) => {
     switch (msg.type) {
       case 'join':
         if (!canAccessChannel(principal, msg.channel)) {
-          ws.send(JSON.stringify({ type: 'error', message: 'access denied to channel' }));
+          ws.send(JSON.stringify({ type: 'error', message: '無權限進入此頻道' }));
           return;
         }
         rooms.join(ws, msg.channel);

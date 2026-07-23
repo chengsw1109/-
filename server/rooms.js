@@ -109,7 +109,7 @@ export function signal(ws, to, data) {
 export function requestFloor(ws) {
   const ch = channels.get(ws.channelId);
   if (!ch) {
-    send(ws, { type: 'error', message: 'Not in a channel' });
+    send(ws, { type: 'error', message: '尚未加入頻道' });
     return false;
   }
   if (ch.activeSpeaker && ch.activeSpeaker !== ws) {

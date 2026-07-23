@@ -1,56 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>browser-ptt · Walkie-Talkie</title>
+  <title>browser-ptt · 對講機</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Login -->
+  <!-- 登入 -->
   <section id="login" class="screen">
     <div class="card">
       <h1>📻 browser-ptt</h1>
-      <p class="muted">Browser walkie-talkie — no app install required.</p>
+      <p class="muted">瀏覽器對講機 — 免安裝 App。</p>
       <form id="login-form">
-        <input id="username" placeholder="Username" autocomplete="username" required />
-        <input id="password" type="password" placeholder="Password" autocomplete="current-password" required />
-        <button type="submit">Sign in</button>
+        <input id="username" placeholder="帳號" autocomplete="username" required />
+        <input id="password" type="password" placeholder="密碼" autocomplete="current-password" required />
+        <button type="submit">登入</button>
       </form>
       <p id="login-error" class="error" hidden></p>
-      <p class="muted small">Demo accounts: admin/admin123 · alice/alice123 · bob/bob123</p>
-      <p class="muted small">or <a href="/direct.html">🔒 1-to-1 private call (no login, serverless)</a></p>
+      <p class="muted small">示範帳號:david / d123 · maggie / m123</p>
+      <p class="muted small">或 <a href="/direct.html">🔒 1 對 1 私密通話(免登入、無伺服器)</a></p>
     </div>
   </section>
 
-  <!-- App -->
+  <!-- 主畫面 -->
   <section id="app" class="screen" hidden>
     <header class="topbar">
       <span class="who">👤 <b id="me"></b></span>
-      <select id="channel-select" aria-label="Channel"></select>
-      <button id="logout" class="ghost">Logout</button>
+      <select id="channel-select" aria-label="頻道"></select>
+      <button id="logout" class="ghost">登出</button>
     </header>
 
     <main class="main">
       <div class="status-card">
         <div id="status-dot" class="dot idle"></div>
-        <div id="status-text">Idle</div>
+        <div id="status-text">待機</div>
       </div>
 
       <button id="ptt" class="ptt" disabled>
-        <span class="ptt-label">Hold to Talk</span>
+        <span class="ptt-label">按住說話</span>
       </button>
-      <button id="enable-audio" class="ghost" hidden>🔊 Tap to enable audio</button>
+      <button id="enable-audio" class="ghost" hidden>🔊 點一下開啟聲音</button>
       <p id="hint" class="muted small"></p>
 
       <div class="online">
-        <h2>🟢 Online <span id="online-count" class="count">0</span></h2>
+        <h2>🟢 在線 <span id="online-count" class="count">0</span></h2>
         <ul id="online-list"></ul>
       </div>
     </main>
   </section>
 
-  <!-- remote peers' audio elements are attached here -->
+  <!-- 遠端對象的音訊元素會掛在這裡 -->
   <div id="audio-sink" hidden></div>
 
   <script src="app.js"></script>
