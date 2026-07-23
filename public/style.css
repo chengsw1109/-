@@ -26,6 +26,9 @@ body {
 }
 
 .screen { min-height: 100vh; display: flex; flex-direction: column; }
+/* App screen fills exactly one viewport and never scrolls the page — the
+   online list and chat scroll inside themselves instead. */
+#app { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
 
 /* Login */
 #login { align-items: center; justify-content: center; padding: 20px; }
@@ -63,32 +66,41 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 
 /* Topbar */
 .topbar {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px;
   background: var(--card);
   border-bottom: 1px solid #22303f;
 }
-.topbar .who { flex: 0 0 auto; }
+.topbar .who { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .topbar select { flex: 1 1 auto; min-width: 0; }
+.topbar .ghost { padding: 8px 10px; font-size: 13px; }
 .topbar .ghost { flex: 0 0 auto; }
 
-/* Main */
+/* Main — compact single-screen column that fills #app and doesn't scroll. */
 .main {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 22px;
-  padding: 24px 16px 40px;
+  gap: 12px;
+  padding: 12px 14px;
   max-width: 520px;
   margin: 0 auto;
   width: 100%;
+  overflow: hidden;
+}
+
+/* status + connection mode share one compact row */
+.controls {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; width: 100%; flex-wrap: wrap;
 }
 
 .status-card {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 8px;
   background: var(--card);
-  padding: 10px 18px;
+  padding: 7px 14px;
   border-radius: 999px;
 }
 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--muted); }
@@ -96,15 +108,16 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 .dot.speaking { background: var(--red); box-shadow: 0 0 0 4px rgba(248,81,73,.25); }
 .dot.receiving { background: var(--green); box-shadow: 0 0 0 4px rgba(46,160,67,.25); }
 
-/* PTT button */
+/* PTT button — smaller so the whole screen fits on a phone */
 .ptt {
-  width: min(60vw, 240px);
-  height: min(60vw, 240px);
+  flex: 0 0 auto;
+  width: clamp(104px, 30vw, 150px);
+  height: clamp(104px, 30vw, 150px);
   border-radius: 50%;
   background: radial-gradient(circle at 50% 40%, #3a4b60, #223041);
-  border: 6px solid #2c3a4a;
+  border: 5px solid #2c3a4a;
   color: var(--text);
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 700;
   user-select: none;
   touch-action: none;
@@ -130,39 +143,50 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 
 /* Network mode selector */
 .netmode {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--card); padding: 8px 14px; border-radius: 999px;
+  display: flex; align-items: center;
+  background: var(--card); padding: 4px 6px; border-radius: 999px;
 }
-.netmode select { padding: 6px 10px; border-radius: 8px; }
+.netmode select { padding: 6px 10px; border-radius: 999px; border: none; background: var(--card-2); }
 
-/* Online list */
-.online { width: 100%; }
-.online h2 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+/* Lower area: online + chat share the remaining height, scrolling internally */
+.lower {
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; flex-direction: column; gap: 10px; overflow: hidden;
+}
+
+/* Online list — compact chips, capped height, scrolls internally */
+.online { flex: 0 0 auto; width: 100%; }
+.online h2 { font-size: 14px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
 .count {
   background: var(--card-2); border-radius: 999px;
   padding: 1px 9px; font-size: 12px; color: var(--muted);
 }
-#online-list { list-style: none; padding: 0; margin: 8px 0 0; }
+#online-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  max-height: 22vh; overflow-y: auto;
+}
 #online-list li {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; background: var(--card);
-  border-radius: 10px; margin-bottom: 8px;
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  padding: 5px 11px; background: var(--card-2);
+  border-radius: 999px; font-size: 14px;
 }
 #online-list li.talking { outline: 2px solid var(--red); }
-#online-list li .mic { margin-left: auto; opacity: 0; }
+#online-list li .mic { opacity: 0; }
 #online-list li.talking .mic { opacity: 1; }
 
-/* Text chat */
-.chat { width: 100%; margin-top: 8px; }
-.chat h2 { font-size: 15px; }
-#chat-quick { width: 100%; margin-bottom: 8px; font-size: 13px; }
+/* Text chat — fills the rest of the lower area, log scrolls internally */
+.chat { width: 100%; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.chat-head { display: flex; align-items: center; justify-content: space-between; }
+.chat h2 { font-size: 14px; margin: 0; }
+.chat-head a { text-decoration: none; }
+#chat-quick { width: 100%; font-size: 13px; }
 #chat-log {
-  list-style: none; padding: 8px; margin: 0 0 8px;
+  list-style: none; padding: 8px; margin: 0;
   background: var(--card); border-radius: 10px;
-  max-height: 240px; overflow-y: auto;
+  flex: 1; min-height: 40px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 6px;
 }
-#chat-log:empty { display: none; }
 #chat-log li {
   display: flex; flex-direction: column; gap: 2px;
   max-width: 85%; align-self: flex-start;

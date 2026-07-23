@@ -34,17 +34,17 @@
     </header>
 
     <main class="main">
-      <div class="status-card">
-        <div id="status-dot" class="dot idle"></div>
-        <div id="status-text">待機</div>
-      </div>
-
-      <div class="netmode">
-        <span class="muted small">連線模式</span>
-        <select id="net-mode" aria-label="連線模式">
-          <option value="lan">內網（區網直連 · 不用 TURN）</option>
-          <option value="wan">外網（跨網路 · 需要時用 TURN）</option>
-        </select>
+      <div class="controls">
+        <div class="status-card">
+          <div id="status-dot" class="dot idle"></div>
+          <div id="status-text">待機</div>
+        </div>
+        <div class="netmode">
+          <select id="net-mode" aria-label="連線模式">
+            <option value="lan">內網 · 區網直連</option>
+            <option value="wan">外網 · 跨網路</option>
+          </select>
+        </div>
       </div>
 
       <button id="ptt" class="ptt" disabled>
@@ -53,22 +53,25 @@
       <button id="enable-audio" class="ghost" hidden>🔊 點一下開啟聲音</button>
       <p id="hint" class="muted small"></p>
 
-      <div class="online">
-        <h2>🟢 在線 <span id="online-count" class="count">0</span></h2>
-        <ul id="online-list"></ul>
-      </div>
+      <div class="lower">
+        <div class="online">
+          <h2>🟢 在線 <span id="online-count" class="count">0</span></h2>
+          <ul id="online-list"></ul>
+        </div>
 
-      <div class="chat">
-        <h2>💬 訊息</h2>
-        <button id="chat-quick" class="ghost" type="button">🔈 通知對方:聽不到聲音,請切「外網」</button>
-        <ul id="chat-log"></ul>
-        <form id="chat-form">
-          <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
-          <button type="submit">送出</button>
-        </form>
+        <div class="chat">
+          <div class="chat-head">
+            <h2>💬 訊息</h2>
+            <a href="/help.html" target="_blank" class="muted small">📖 說明</a>
+          </div>
+          <button id="chat-quick" class="ghost" type="button">🔈 通知對方:聽不到聲音,請切「外網」</button>
+          <ul id="chat-log"></ul>
+          <form id="chat-form">
+            <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
+            <button type="submit">送出</button>
+          </form>
+        </div>
       </div>
-
-      <p class="muted small" style="margin-top: 4px;">📖 <a href="/help.html" target="_blank">中文使用說明</a></p>
     </main>
   </section>
 
