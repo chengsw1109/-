@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 
 import { config } from './config.js';
 import { login, verifyToken, allowedChannels, canAccessChannel } from './auth.js';
+import { resolveIceServers } from './turn.js';
 import * as rooms from './rooms.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -17,7 +18,7 @@ app.use(express.json());
 app.use(express.static(publicDir));
 
 // --- REST: login -----------------------------------------------------------
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ error: '請輸入帳號與密碼' });
@@ -27,7 +28,7 @@ app.post('/api/login', (req, res) => {
   res.json({
     ...result,
     channels: allowedChannels({ ...result.user }),
-    iceServers: config.iceServers,
+    iceServers: await resolveIceServers(),
   });
 });
 

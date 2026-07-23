@@ -15,24 +15,30 @@
 概念相同):
 
 1. 到 https://www.metered.ca 註冊免費帳號(免費額度足夠家用)。
-2. 建一個 app,在後台的 **TURN Credentials** 頁面拿到:
-   - 一組 **TURN 網址**(通常會有好幾個埠:`:80`、`:80?transport=tcp`、
-     `:443`、`turns::443?transport=tcp`)
-   - 一組 **username** 與 **credential(password)**
-3. 用這些值啟動 browser-ptt:
+2. 建一個 app,拿到它的 **API Key** 與 credentials 端點,長這樣:
+
+   ```
+   https://<你的app>.metered.live/api/v1/turn/credentials?apiKey=<你的APIKEY>
+   ```
+
+   metered 給的是**動態(會過期)帳密**,所以我們讓伺服器在**登入時自動去抓最新的**,
+   而不是把帳密寫死。
+
+3. 用這個端點啟動 browser-ptt(把整個網址放進 `TURN_CREDENTIALS_URL`):
 
    ```bash
-   TURN_URL="turn:你的HOST:80,turn:你的HOST:80?transport=tcp,turns:你的HOST:443?transport=tcp" \
-   TURN_USERNAME="你的username" \
-   TURN_CREDENTIAL="你的credential" \
+   TURN_CREDENTIALS_URL="https://你的app.metered.live/api/v1/turn/credentials?apiKey=你的APIKEY" \
    npm start
    ```
 
-   > `TURN_URL` 可用**逗號**放多個埠;`turns:`(443/TLS)最能穿透嚴格防火牆,
-   > 一定要放進去。
+   > 這把 API Key 是機密。放在 `.env`(已被 git 忽略)或命令列即可,**不要 commit**。
+   > 伺服器會快取約 30 分鐘,不會每次登入都打 API。
 
 4. 重開你的 tunnel(指向同一個 port),把網址再傳給家人。
 5. **雙方都要重新整理 / 重新登入** — TURN 設定是在「登入時」下發的,舊分頁不生效。
+
+> 若你的供應商給的是**靜態帳密**(或你自架 coturn),則改用
+> `TURN_URL` / `TURN_USERNAME` / `TURN_CREDENTIAL`(見方式 B 或 `.env.example`)。
 
 ---
 

@@ -30,4 +30,8 @@ export const config = {
   users: raw.users || [],
   port: Number(process.env.PORT) || 3000,
   iceServers: iceServers(),
+  // Optional: a URL that returns a fresh ICE-servers JSON array (e.g. metered's
+  // https://<app>.metered.live/api/v1/turn/credentials?apiKey=...). When set,
+  // the server fetches short-lived TURN credentials from it at login time.
+  turnCredentialsUrl: process.env.TURN_CREDENTIALS_URL || '',
 };
