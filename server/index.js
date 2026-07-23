@@ -55,6 +55,10 @@ wss.on('connection', (ws, req) => {
   ws.channelId = null;
   rooms.register(ws);
 
+  // Heartbeat: the browser auto-replies to protocol-level pings with a pong.
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+
   ws.on('message', (data, isBinary) => {
     if (isBinary) return; // no binary audio path anymore
     let msg;
@@ -98,6 +102,23 @@ wss.on('connection', (ws, req) => {
   ws.on('close', cleanup);
   ws.on('error', cleanup);
 });
+
+// Detect dead connections (phone asleep, Wi-Fi dropped, tunnel hiccup) that
+// never sent a proper close — otherwise a departed peer lingers as "online".
+// Each round: terminate anyone who didn't pong since the last ping, then ping
+// everyone. terminate() fires 'close', which runs cleanup and updates presence.
+const HEARTBEAT_MS = 10000;
+const heartbeat = setInterval(() => {
+  for (const ws of wss.clients) {
+    if (ws.isAlive === false) {
+      ws.terminate();
+      continue;
+    }
+    ws.isAlive = false;
+    try { ws.ping(); } catch { ws.terminate(); }
+  }
+}, HEARTBEAT_MS);
+wss.on('close', () => clearInterval(heartbeat));
 
 server.listen(config.port, () => {
   console.log(`browser-ptt listening on http://localhost:${config.port}`);
