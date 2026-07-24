@@ -181,13 +181,19 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; }
 .chat h2 { font-size: 14px; margin: 0; }
 .chat-head a { text-decoration: none; }
-.chat-quick { display: grid; gap: 6px; margin-bottom: 8px; }
-.quick-message-picker { display: flex; gap: 6px; }
-#quick-message-select { flex: 1; min-width: 0; }
-#quick-message-send,
-#quick-message-remove { flex: 0 0 auto; font-size: 13px; }
-#quick-message-form { display: flex; gap: 6px; }
-#quick-message-new { flex: 1; min-width: 0; }
+.chat-quick { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.quick-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 76px; overflow-y: auto; }
+.chip { display: inline-flex; align-items: center; background: var(--card-2); border-radius: 999px; }
+.chip-text {
+  background: none; border: none; color: var(--text);
+  padding: 6px 12px; font-size: 13px; border-radius: 999px; cursor: pointer;
+  max-width: 56vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.chip-del { background: none; border: none; color: var(--muted); font-size: 15px; padding: 6px 10px 6px 0; cursor: pointer; }
+/* add-box: input + 加入 on its right (override generic form{flex-direction:column}) */
+#quick-message-form { display: flex; flex-direction: row; gap: 6px; align-items: stretch; margin: 0; min-height: 0; }
+#quick-message-new { flex: 1; min-width: 0; padding: 8px 12px; font-size: 14px; }
+#quick-message-form button { flex: 0 0 auto; padding: 8px 14px; }
 #chat-log {
   list-style: none; padding: 8px; margin: 0;
   background: var(--card); border-radius: 10px;

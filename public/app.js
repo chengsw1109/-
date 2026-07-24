@@ -563,40 +563,44 @@ function saveCustomQuickMessages(messages) {
   localStorage.setItem(QUICK_MESSAGES_KEY, JSON.stringify(messages));
 }
 
+// Short label for a chip (the default notice is long); the full text is sent.
+function quickLabel(text) {
+  return text.length > 16 ? text.slice(0, 15) + '…' : text;
+}
+
+function makeQuickChip(text, removable) {
+  const chip = document.createElement('span');
+  chip.className = 'chip';
+  const t = document.createElement('button');
+  t.type = 'button';
+  t.className = 'chip-text';
+  t.textContent = quickLabel(text);
+  t.title = text;
+  t.addEventListener('click', () => send({ type: 'chat', text }));
+  chip.appendChild(t);
+  if (removable) {
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'chip-del';
+    del.textContent = '×';
+    del.setAttribute('aria-label', '刪除');
+    del.addEventListener('click', () => {
+      saveCustomQuickMessages(getCustomQuickMessages().filter((m) => m !== text));
+      renderQuickMessages();
+    });
+    chip.appendChild(del);
+  }
+  return chip;
+}
+
+// Render tappable quick-phrase chips: fixed defaults, then the user's custom
+// ones (each removable). Tapping a chip sends it as a chat message.
 function renderQuickMessages() {
-  const select = $('#quick-message-select');
-  const previousValue = select.value;
-  select.innerHTML = '';
-  const customMessages = getCustomQuickMessages();
-  for (const text of [...DEFAULT_QUICK_MESSAGES, ...customMessages]) {
-    const option = document.createElement('option');
-    option.value = text;
-    option.textContent = text;
-    option.dataset.custom = customMessages.includes(text) ? 'true' : 'false';
-    select.appendChild(option);
-  }
-  if ([...select.options].some((option) => option.value === previousValue)) {
-    select.value = previousValue;
-  }
-  updateQuickMessageControls();
+  const box = $('#quick-chips');
+  box.innerHTML = '';
+  for (const text of DEFAULT_QUICK_MESSAGES) box.appendChild(makeQuickChip(text, false));
+  for (const text of getCustomQuickMessages()) box.appendChild(makeQuickChip(text, true));
 }
-
-function updateQuickMessageControls() {
-  const option = $('#quick-message-select').selectedOptions[0];
-  $('#quick-message-remove').hidden = option?.dataset.custom !== 'true';
-}
-
-$('#quick-message-select').addEventListener('change', updateQuickMessageControls);
-$('#quick-message-send').addEventListener('click', () => {
-  const text = $('#quick-message-select').value.trim();
-  if (text) send({ type: 'chat', text });
-});
-$('#quick-message-remove').addEventListener('click', () => {
-  const text = $('#quick-message-select').value;
-  const next = getCustomQuickMessages().filter((message) => message !== text);
-  saveCustomQuickMessages(next);
-  renderQuickMessages();
-});
 
 $('#quick-message-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -610,8 +614,6 @@ $('#quick-message-form').addEventListener('submit', (e) => {
   }
   input.value = '';
   renderQuickMessages();
-  $('#quick-message-select').value = text;
-  updateQuickMessageControls();
 });
 renderQuickMessages();
 

@@ -63,13 +63,9 @@
           </div>
           <ul id="chat-log"></ul>
           <div class="chat-quick">
-            <div class="quick-message-picker">
-              <select id="quick-message-select" aria-label="快速通知句子"></select>
-              <button id="quick-message-send" class="ghost" type="button">送出</button>
-              <button id="quick-message-remove" class="ghost danger" type="button" hidden>刪除</button>
-            </div>
+            <div id="quick-chips" class="quick-chips"></div>
             <form id="quick-message-form">
-              <input id="quick-message-new" placeholder="新增其他快速句子…" maxlength="500" autocomplete="off" />
+              <input id="quick-message-new" placeholder="新增快速句子…" maxlength="500" autocomplete="off" />
               <button class="ghost" type="submit">加入</button>
             </form>
           </div>
