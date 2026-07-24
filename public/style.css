@@ -181,7 +181,19 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; }
 .chat h2 { font-size: 14px; margin: 0; }
 .chat-head a { text-decoration: none; }
-#chat-quick { width: 100%; font-size: 13px; }
+.chat-quick { display: grid; gap: 6px; margin-bottom: 8px; }
+#quick-messages { display: grid; gap: 6px; }
+.quick-message-item { display: flex; gap: 6px; }
+.quick-message-send {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  text-align: left;
+  white-space: normal;
+}
+.quick-message-remove { flex: 0 0 38px; padding: 8px; }
+#quick-message-form { display: flex; gap: 6px; }
+#quick-message-new { flex: 1; min-width: 0; }
 #chat-log {
   list-style: none; padding: 8px; margin: 0;
   background: var(--card); border-radius: 10px;

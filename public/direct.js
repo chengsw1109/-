@@ -150,12 +150,12 @@ async function createInvite() {
       const sender = pc.addTrack(t, state.localStream);
       if (t.kind === 'audio') {
         state.audioSender = sender;
-        await sender.replaceTrack(null);
       }
     }
     setupChannel(pc.createDataChannel('ctrl'));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    await state.audioSender?.replaceTrack(null);
     await waitIceComplete(pc);
     const code = await packDesc(pc.localDescription);
     $('#offer-out').value = code;
@@ -185,12 +185,12 @@ async function generateReply() {
       const sender = pc.addTrack(t, state.localStream);
       if (t.kind === 'audio') {
         state.audioSender = sender;
-        await sender.replaceTrack(null);
       }
     }
     await pc.setRemoteDescription(offer);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
+    await state.audioSender?.replaceTrack(null);
     await waitIceComplete(pc);
     const code = await packDesc(pc.localDescription);
     $('#answer-out').value = code;

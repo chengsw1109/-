@@ -62,7 +62,13 @@
             <a href="/help.html" target="_blank" class="muted small">📖 說明</a>
           </div>
           <ul id="chat-log"></ul>
-          <button id="chat-quick" class="ghost" type="button">🔈 通知對方:聽不到聲音,請切「外網」</button>
+          <div class="chat-quick">
+            <div id="quick-messages" aria-label="快速通知句子"></div>
+            <form id="quick-message-form">
+              <input id="quick-message-new" placeholder="新增其他快速句子…" maxlength="500" autocomplete="off" />
+              <button class="ghost" type="submit">加入</button>
+            </form>
+          </div>
           <form id="chat-form">
             <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
             <button type="submit" class="send">送出</button>

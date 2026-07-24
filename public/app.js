@@ -68,6 +68,12 @@ $('#login-form').addEventListener('submit', async (e) => {
 // the app. The token is remembered so a reload lands straight on the usage
 // screen (no re-typing) and the "re-login" button can reconnect without a form.
 function startSession(data) {
+  // Remove chat history written by older versions. Quick-message preferences
+  // use a separate key and are intentionally preserved.
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('ptt-chat-')) localStorage.removeItem(key);
+  }
   state.token = data.token;
   state.me = data.user;
   state.channels = data.channels;
@@ -108,7 +114,7 @@ async function enterApp() {
     sel.appendChild(opt);
   }
   sel.addEventListener('change', () => joinChannel(sel.value));
-  loadChannelChat(sel.value); // restore saved messages for the initial channel
+  loadChannelChat(sel.value);
 
   const modeSel = $('#net-mode');
   modeSel.value = state.netMode;
@@ -322,7 +328,6 @@ function handleSignal(msg) {
         if (seenChat.has(msg.id)) break; // ignore duplicate delivery
         seenChat.add(msg.id);
       }
-      storeChat(msg.channel || state.channel, { id: msg.id, user: msg.user, text: msg.text, ts: msg.ts });
       renderChat(msg.user, msg.text, msg.ts);
       break;
     case 'error':
@@ -342,8 +347,6 @@ function createPeer(peerId, username) {
       const sender = pc.addTrack(track, state.localStream);
       if (track.kind === 'audio') {
         entry.audioSender = sender;
-        // Half-duplex: start muted (send no track) unless we hold the floor.
-        if (!state.hasFloor) sender.replaceTrack(null).catch(() => {});
       }
     }
   } else {
@@ -375,11 +378,13 @@ function createPeer(peerId, username) {
 
 async function connectToPeer(peerId, username, initiator) {
   if (state.peers.has(peerId)) return;
-  const { pc } = createPeer(peerId, username);
+  const entry = createPeer(peerId, username);
+  const { pc } = entry;
   if (initiator) {
     try {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
+      await mutePeerAfterNegotiation(entry);
       send({ type: 'signal', to: peerId, data: { kind: 'offer', sdp: pc.localDescription } });
     } catch (ex) {
       console.error('offer failed', ex);
@@ -398,6 +403,7 @@ async function onSignal(from, data) {
       await drainIce(entry);
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      await mutePeerAfterNegotiation(entry);
       send({ type: 'signal', to: from, data: { kind: 'answer', sdp: pc.localDescription } });
     } else if (data.kind === 'answer') {
       await pc.setRemoteDescription(data.sdp);
@@ -409,6 +415,14 @@ async function onSignal(from, data) {
     }
   } catch (ex) {
     console.error('signal handling failed', ex);
+  }
+}
+
+async function mutePeerAfterNegotiation(entry) {
+  // The real track must be present while Safari generates SDP so the m-line is
+  // negotiated as sendrecv. Detach it only after setLocalDescription().
+  if (!state.hasFloor && entry.audioSender) {
+    await entry.audioSender.replaceTrack(null);
   }
 }
 
@@ -531,9 +545,71 @@ $('#chat-form').addEventListener('submit', (e) => {
   send({ type: 'chat', text });
   input.value = '';
 });
-$('#chat-quick').addEventListener('click', () => {
-  send({ type: 'chat', text: '🔈 我聽不到聲音,請把「連線模式」切成「外網」。' });
+const DEFAULT_QUICK_MESSAGES = [
+  '🔈 我聽不到聲音，請把「連線模式」切成「外網」。',
+];
+const QUICK_MESSAGES_KEY = 'ptt-quick-messages';
+
+function getCustomQuickMessages() {
+  try {
+    const messages = JSON.parse(localStorage.getItem(QUICK_MESSAGES_KEY) || '[]');
+    return Array.isArray(messages) ? messages.filter((text) => typeof text === 'string' && text.trim()) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomQuickMessages(messages) {
+  localStorage.setItem(QUICK_MESSAGES_KEY, JSON.stringify(messages));
+}
+
+function renderQuickMessages() {
+  const container = $('#quick-messages');
+  container.innerHTML = '';
+  const customMessages = getCustomQuickMessages();
+  for (const text of [...DEFAULT_QUICK_MESSAGES, ...customMessages]) {
+    const item = document.createElement('div');
+    item.className = 'quick-message-item';
+
+    const sendBtn = document.createElement('button');
+    sendBtn.type = 'button';
+    sendBtn.className = 'ghost quick-message-send';
+    sendBtn.textContent = text;
+    sendBtn.addEventListener('click', () => send({ type: 'chat', text }));
+    item.appendChild(sendBtn);
+
+    const customIndex = customMessages.indexOf(text);
+    if (customIndex >= 0) {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'ghost quick-message-remove';
+      removeBtn.textContent = '×';
+      removeBtn.setAttribute('aria-label', '刪除快速句子');
+      removeBtn.addEventListener('click', () => {
+        const next = getCustomQuickMessages().filter((message) => message !== text);
+        saveCustomQuickMessages(next);
+        renderQuickMessages();
+      });
+      item.appendChild(removeBtn);
+    }
+    container.appendChild(item);
+  }
+}
+
+$('#quick-message-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = $('#quick-message-new');
+  const text = input.value.trim();
+  if (!text) return;
+  const messages = getCustomQuickMessages();
+  if (!DEFAULT_QUICK_MESSAGES.includes(text) && !messages.includes(text)) {
+    messages.push(text);
+    saveCustomQuickMessages(messages);
+  }
+  input.value = '';
+  renderQuickMessages();
 });
+renderQuickMessages();
 
 function renderChat(user, text, ts) {
   const ul = $('#chat-log');
@@ -546,27 +622,11 @@ function renderChat(user, text, ts) {
   ul.scrollTop = ul.scrollHeight;
 }
 
-// ---- Chat persistence (per channel, in localStorage) ----------------------
-const CHAT_LIMIT = 200; // keep the most recent N messages per channel
-const chatKey = (channel) => 'ptt-chat-' + channel;
-function getStoredChat(channel) {
-  try { return JSON.parse(localStorage.getItem(chatKey(channel)) || '[]'); } catch { return []; }
-}
-function storeChat(channel, m) {
-  const arr = getStoredChat(channel);
-  arr.push(m);
-  if (arr.length > CHAT_LIMIT) arr.splice(0, arr.length - CHAT_LIMIT);
-  try { localStorage.setItem(chatKey(channel), JSON.stringify(arr)); } catch {}
-}
-// Show a channel's saved history (called on entry and on channel switch).
+// Chat is intentionally session-only. Login and channel changes start empty.
 function loadChannelChat(channel) {
   state.channel = channel;
   $('#chat-log').innerHTML = '';
   seenChat.clear();
-  for (const m of getStoredChat(channel)) {
-    if (m.id) seenChat.add(m.id);
-    renderChat(m.user, m.text, m.ts);
-  }
 }
 
 // ---- Helpers --------------------------------------------------------------
