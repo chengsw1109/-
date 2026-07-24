@@ -108,6 +108,7 @@ async function enterApp() {
     sel.appendChild(opt);
   }
   sel.addEventListener('change', () => joinChannel(sel.value));
+  loadChannelChat(sel.value); // restore saved messages for the initial channel
 
   const modeSel = $('#net-mode');
   modeSel.value = state.netMode;
@@ -238,10 +239,8 @@ function send(obj) {
 
 function joinChannel(channelId) {
   if (!channelId) return;
-  state.channel = channelId;
   teardownPeers();
-  $('#chat-log').innerHTML = ''; // chat is per-channel
-  seenChat.clear();
+  loadChannelChat(channelId); // sets state.channel + restores this channel's saved messages
   send({ type: 'join', channel: channelId });
 }
 
@@ -287,6 +286,7 @@ function handleSignal(msg) {
         if (seenChat.has(msg.id)) break; // ignore duplicate delivery
         seenChat.add(msg.id);
       }
+      storeChat(msg.channel || state.channel, { id: msg.id, user: msg.user, text: msg.text, ts: msg.ts });
       renderChat(msg.user, msg.text, msg.ts);
       break;
     case 'error':
@@ -494,6 +494,29 @@ function renderChat(user, text, ts) {
   li.innerHTML = `<span class="chat-meta">${escapeHtml(user)} · ${time}</span><span class="chat-text">${escapeHtml(text)}</span>`;
   ul.appendChild(li);
   ul.scrollTop = ul.scrollHeight;
+}
+
+// ---- Chat persistence (per channel, in localStorage) ----------------------
+const CHAT_LIMIT = 200; // keep the most recent N messages per channel
+const chatKey = (channel) => 'ptt-chat-' + channel;
+function getStoredChat(channel) {
+  try { return JSON.parse(localStorage.getItem(chatKey(channel)) || '[]'); } catch { return []; }
+}
+function storeChat(channel, m) {
+  const arr = getStoredChat(channel);
+  arr.push(m);
+  if (arr.length > CHAT_LIMIT) arr.splice(0, arr.length - CHAT_LIMIT);
+  try { localStorage.setItem(chatKey(channel), JSON.stringify(arr)); } catch {}
+}
+// Show a channel's saved history (called on entry and on channel switch).
+function loadChannelChat(channel) {
+  state.channel = channel;
+  $('#chat-log').innerHTML = '';
+  seenChat.clear();
+  for (const m of getStoredChat(channel)) {
+    if (m.id) seenChat.add(m.id);
+    renderChat(m.user, m.text, m.ts);
+  }
 }
 
 // ---- Helpers --------------------------------------------------------------
