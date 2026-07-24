@@ -155,15 +155,39 @@ $('#relogin').addEventListener('click', async () => {
   }
 });
 $('#enable-audio').addEventListener('click', () => {
-  for (const { audioEl } of state.peers.values()) audioEl?.play?.().catch(() => {});
-  $('#enable-audio').hidden = true;
+  resumeRemoteAudio();
 });
+
+function liveMicTrack() {
+  return state.localStream?.getAudioTracks().find((track) => track.readyState === 'live') || null;
+}
+
+function reportPlayError(ex) {
+  console.error('remote audio play() failed', ex);
+  $('#enable-audio').hidden = false;
+}
+
+async function resumeRemoteAudio() {
+  const attempts = [];
+  for (const { audioEl } of state.peers.values()) {
+    if (audioEl?.srcObject) attempts.push(audioEl.play().catch(reportPlayError));
+  }
+  await Promise.all(attempts);
+  const audioEls = [...state.peers.values()].map((entry) => entry.audioEl).filter(Boolean);
+  if (audioEls.length && audioEls.every((audioEl) => !audioEl.paused)) {
+    $('#enable-audio').hidden = true;
+  }
+}
 
 // Returns true if a mic track is available. On iOS Safari getUserMedia must run
 // inside a user gesture, so this may fail at login and succeed later on a PTT
 // press — see requestTalk().
 async function ensureMic() {
-  if (state.localStream) return true;
+  if (liveMicTrack()) return true;
+  if (state.localStream) {
+    state.localStream.getTracks().forEach((track) => track.stop());
+    state.localStream = null;
+  }
   try {
     state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     // Keep the track enabled; half-duplex muting is done per sender via
@@ -192,9 +216,21 @@ function connectWs() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(state.token)}`);
   state.ws = ws;
-  ws.onopen = () => {
+  ws.onopen = async () => {
     reconnectDelay = 1000;
     setHint('');
+    // iPhones commonly reconnect after a network change or waking from sleep.
+    // Refresh short-lived TURN credentials before creating new peer connections.
+    try {
+      const res = await fetch('/api/session', { headers: { Authorization: 'Bearer ' + state.token } });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.iceServers) && data.iceServers.length) state.iceServers = data.iceServers;
+      }
+    } catch (ex) {
+      console.warn('could not refresh ICE servers during reconnect', ex);
+    }
+    if (state.ws !== ws || ws.readyState !== WebSocket.OPEN) return;
     // Rejoin the current channel and rebuild peer connections (they died with
     // the old socket). Keep the chat log — don't clear it on a reconnect.
     const ch = $('#channel-select').value;
@@ -318,7 +354,11 @@ function createPeer(peerId, username) {
   pc.onicecandidate = (e) => {
     if (e.candidate) send({ type: 'signal', to: peerId, data: { kind: 'ice', candidate: e.candidate } });
   };
-  pc.ontrack = (e) => attachAudio(peerId, e.streams[0]);
+  pc.ontrack = (e) => {
+    // Safari may deliver a track without populating event.streams.
+    const stream = e.streams[0] || new MediaStream([e.track]);
+    attachAudio(peerId, stream);
+  };
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
     // Media is P2P; make a failed path visible instead of silently muted.
@@ -388,8 +428,8 @@ function attachAudio(peerId, stream) {
     $('#audio-sink').appendChild(el);
     entry.audioEl = el;
   }
-  el.srcObject = stream;
-  el.play().catch(() => { $('#enable-audio').hidden = false; }); // autoplay may need a tap
+  if (el.srcObject !== stream) el.srcObject = stream;
+  el.play().catch(reportPlayError); // autoplay may need a tap on iOS Safari
 }
 
 function removePeer(peerId) {
@@ -413,9 +453,14 @@ function setFloor(on) {
   // Unmute/mute by attaching or detaching the real track on each peer's sender
   // (replaceTrack) rather than toggling track.enabled — the latter is unreliable
   // on iOS Safari, which is why the peer couldn't hear an iPhone.
-  const track = state.localStream?.getAudioTracks()[0] || null;
+  const track = liveMicTrack();
   for (const entry of state.peers.values()) {
-    if (entry.audioSender) entry.audioSender.replaceTrack(on ? track : null).catch(() => {});
+    if (entry.audioSender) {
+      entry.audioSender.replaceTrack(on ? track : null).catch((ex) => {
+        console.error('audio sender replaceTrack() failed', ex);
+        setHint('⚠️ 無法切換麥克風:' + ex.message);
+      });
+    }
   }
   $('#ptt').classList.toggle('active', on);
   setStatus(on ? 'speaking' : 'idle', on ? '🔴 你正在說話' : '待機');
@@ -423,7 +468,12 @@ function setFloor(on) {
 
 // ---- PTT button -----------------------------------------------------------
 const pttBtn = $('#ptt');
-const pressStart = (e) => { e.preventDefault(); requestTalk(); };
+const pressStart = (e) => {
+  e.preventDefault();
+  // Keep this call in the original user gesture so iOS can unlock playback.
+  resumeRemoteAudio();
+  requestTalk();
+};
 const pressEnd = (e) => { e.preventDefault(); endTalk(); };
 pttBtn.addEventListener('mousedown', pressStart);
 pttBtn.addEventListener('touchstart', pressStart, { passive: false });
@@ -437,7 +487,7 @@ window.addEventListener('keyup', (e) => { if (e.code === 'Space') { e.preventDef
 
 async function requestTalk() {
   if (state.hasFloor) return;
-  if (!state.localStream) {
+  if (!liveMicTrack()) {
     // iOS Safari: this press is a user gesture, so getUserMedia can succeed now
     // even though it failed at login. Acquire, then rebuild the peer connections
     // so the mic track is negotiated into the SDP (adding a track to an already

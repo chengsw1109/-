@@ -17,7 +17,7 @@
 
 const $ = (s) => document.querySelector(s);
 
-const state = { pc: null, localStream: null, channel: null, hasFloor: false };
+const state = { pc: null, localStream: null, channel: null, hasFloor: false, audioSender: null };
 const hasCompression = typeof CompressionStream !== 'undefined';
 const canScanInPage = 'BarcodeDetector' in window;
 
@@ -94,17 +94,34 @@ function waitIceComplete(pc) {
   });
 }
 async function ensureMic() {
-  if (state.localStream) return state.localStream;
+  const liveTrack = state.localStream?.getAudioTracks().find((track) => track.readyState === 'live');
+  if (liveTrack) return state.localStream;
+  if (state.localStream) state.localStream.getTracks().forEach((track) => track.stop());
   state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  state.localStream.getAudioTracks().forEach((t) => (t.enabled = false));
   return state.localStream;
 }
+function reportPlayError(ex) {
+  console.error('remote audio play() failed', ex);
+  $('#enable-audio').hidden = false;
+}
+function playRemoteAudio() {
+  const el = $('#remote');
+  if (!el.srcObject) return Promise.resolve();
+  return el.play().then(() => {
+    $('#enable-audio').hidden = true;
+  }).catch(reportPlayError);
+}
 function makePc() {
+  if (state.pc) {
+    try { state.pc.close(); } catch {}
+    $('#remote').srcObject = null;
+  }
   const pc = new RTCPeerConnection({ iceServers: iceServers() });
   pc.ontrack = (e) => {
     const el = $('#remote');
-    el.srcObject = e.streams[0];
-    el.play().catch(() => { $('#enable-audio').hidden = false; });
+    // Safari may omit event.streams even though event.track is valid.
+    el.srcObject = e.streams[0] || new MediaStream([e.track]);
+    playRemoteAudio();
   };
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
@@ -129,7 +146,13 @@ async function createInvite() {
   try {
     await ensureMic();
     const pc = makePc();
-    for (const t of state.localStream.getTracks()) pc.addTrack(t, state.localStream);
+    for (const t of state.localStream.getTracks()) {
+      const sender = pc.addTrack(t, state.localStream);
+      if (t.kind === 'audio') {
+        state.audioSender = sender;
+        await sender.replaceTrack(null);
+      }
+    }
     setupChannel(pc.createDataChannel('ctrl'));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -158,7 +181,13 @@ async function generateReply() {
     await ensureMic();
     const pc = makePc();
     pc.ondatachannel = (e) => setupChannel(e.channel);
-    for (const t of state.localStream.getTracks()) pc.addTrack(t, state.localStream);
+    for (const t of state.localStream.getTracks()) {
+      const sender = pc.addTrack(t, state.localStream);
+      if (t.kind === 'audio') {
+        state.audioSender = sender;
+        await sender.replaceTrack(null);
+      }
+    }
     await pc.setRemoteDescription(offer);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
@@ -218,8 +247,16 @@ function showCall() {
 }
 function talk(on) {
   if (on === state.hasFloor || !state.localStream) return;
+  const track = state.localStream.getAudioTracks().find((item) => item.readyState === 'live');
+  if (!track || !state.audioSender) {
+    setHint('⚠️ 麥克風已中斷，請重新建立連線。');
+    return;
+  }
   state.hasFloor = on;
-  state.localStream.getAudioTracks().forEach((t) => (t.enabled = on));
+  state.audioSender.replaceTrack(on ? track : null).catch((ex) => {
+    console.error('audio sender replaceTrack() failed', ex);
+    setHint('⚠️ 無法切換麥克風:' + ex.message);
+  });
   $('#ptt').classList.toggle('active', on);
   setStatus(on ? 'speaking' : 'idle', on ? '🔴 你正在說話' : '已連線');
   if (state.channel?.readyState === 'open') state.channel.send(JSON.stringify({ type: 'talk', on }));
@@ -234,11 +271,11 @@ $('#scan-invite').addEventListener('click', () => scanQR((code) => { $('#offer-i
 $('#scan-reply').addEventListener('click', () => scanQR((code) => { $('#answer-in').value = code; connectWithReply(); }));
 $('#copy-offer').addEventListener('click', () => copy($('#offer-out')));
 $('#copy-answer').addEventListener('click', () => copy($('#answer-out')));
-$('#enable-audio').addEventListener('click', () => { $('#remote').play().catch(() => {}); $('#enable-audio').hidden = true; });
+$('#enable-audio').addEventListener('click', playRemoteAudio);
 $('#hangup').addEventListener('click', () => { try { state.pc?.close(); } catch {} location.reload(); });
 
 const ptt = $('#ptt');
-const down = (e) => { e.preventDefault(); talk(true); };
+const down = (e) => { e.preventDefault(); playRemoteAudio(); talk(true); };
 const up = (e) => { e.preventDefault(); talk(false); };
 ptt.addEventListener('mousedown', down);
 ptt.addEventListener('touchstart', down, { passive: false });

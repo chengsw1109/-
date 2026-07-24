@@ -8,7 +8,9 @@ import { config } from './config.js';
 // login. The static STUN (and any static TURN from env) is always kept as a
 // baseline / fallback.
 
-const TTL_MS = 30 * 60 * 1000; // re-fetch dynamic credentials at most every 30 min
+// Keep this comfortably below typical short-lived credential lifetimes. It can
+// be lowered for providers that issue especially short leases.
+const TTL_MS = Math.max(0, Number(process.env.TURN_CACHE_TTL_MS) || 5 * 60 * 1000);
 let cache = { at: 0, servers: [] };
 
 async function fetchDynamicIceServers() {
