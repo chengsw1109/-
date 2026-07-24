@@ -564,37 +564,39 @@ function saveCustomQuickMessages(messages) {
 }
 
 function renderQuickMessages() {
-  const container = $('#quick-messages');
-  container.innerHTML = '';
+  const select = $('#quick-message-select');
+  const previousValue = select.value;
+  select.innerHTML = '';
   const customMessages = getCustomQuickMessages();
   for (const text of [...DEFAULT_QUICK_MESSAGES, ...customMessages]) {
-    const item = document.createElement('div');
-    item.className = 'quick-message-item';
-
-    const sendBtn = document.createElement('button');
-    sendBtn.type = 'button';
-    sendBtn.className = 'ghost quick-message-send';
-    sendBtn.textContent = text;
-    sendBtn.addEventListener('click', () => send({ type: 'chat', text }));
-    item.appendChild(sendBtn);
-
-    const customIndex = customMessages.indexOf(text);
-    if (customIndex >= 0) {
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'ghost quick-message-remove';
-      removeBtn.textContent = '×';
-      removeBtn.setAttribute('aria-label', '刪除快速句子');
-      removeBtn.addEventListener('click', () => {
-        const next = getCustomQuickMessages().filter((message) => message !== text);
-        saveCustomQuickMessages(next);
-        renderQuickMessages();
-      });
-      item.appendChild(removeBtn);
-    }
-    container.appendChild(item);
+    const option = document.createElement('option');
+    option.value = text;
+    option.textContent = text;
+    option.dataset.custom = customMessages.includes(text) ? 'true' : 'false';
+    select.appendChild(option);
   }
+  if ([...select.options].some((option) => option.value === previousValue)) {
+    select.value = previousValue;
+  }
+  updateQuickMessageControls();
 }
+
+function updateQuickMessageControls() {
+  const option = $('#quick-message-select').selectedOptions[0];
+  $('#quick-message-remove').hidden = option?.dataset.custom !== 'true';
+}
+
+$('#quick-message-select').addEventListener('change', updateQuickMessageControls);
+$('#quick-message-send').addEventListener('click', () => {
+  const text = $('#quick-message-select').value.trim();
+  if (text) send({ type: 'chat', text });
+});
+$('#quick-message-remove').addEventListener('click', () => {
+  const text = $('#quick-message-select').value;
+  const next = getCustomQuickMessages().filter((message) => message !== text);
+  saveCustomQuickMessages(next);
+  renderQuickMessages();
+});
 
 $('#quick-message-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -608,6 +610,8 @@ $('#quick-message-form').addEventListener('submit', (e) => {
   }
   input.value = '';
   renderQuickMessages();
+  $('#quick-message-select').value = text;
+  updateQuickMessageControls();
 });
 renderQuickMessages();
 
