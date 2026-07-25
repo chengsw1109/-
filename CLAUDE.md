@@ -153,9 +153,17 @@ display names live in `config/users.json` (`一般`, `A 組`, `B 組`).
 `PTT_CONFIG` (alternate users config path), `STUN_URL`, and
 `TURN_URL`/`TURN_USERNAME`/`TURN_CREDENTIAL`.
 
-There is **no test suite, linter, or build step** yet. To sanity-check the
-server manually: `curl localhost:3000/api/health` and
+There is no linter or build step. To sanity-check the server manually:
+`curl localhost:3000/api/health` and
 `curl -X POST localhost:3000/api/login -H 'Content-Type: application/json' -d '{"username":"david","password":"d123"}'`.
+
+**WAN audio test** — `npm run test:wan` (`test/wan-audio.mjs`) is a self-contained
+end-to-end check of the 外網 path: it starts a real TURN server (`node-turn`),
+launches two headless browsers (`playwright-core`) forced to **relay-only** so
+media must traverse TURN, and asserts each side receives the other's audio via
+`getStats`. Dev-only deps; needs a Chromium at `$CHROMIUM_PATH`. Use it to prove
+the client 外網 media path works — a real-world "no sound on 外網" then points at
+the TURN service/credentials, not the code.
 
 ## Key conventions
 

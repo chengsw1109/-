@@ -6,7 +6,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "node --watch server/index.js"
+    "dev": "node --watch server/index.js",
+    "test:wan": "node test/wan-audio.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -19,6 +20,8 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "jsqr": "^1.4.0"
+    "jsqr": "^1.4.0",
+    "node-turn": "^0.0.6",
+    "playwright-core": "^1.62.0"
   }
 }
