@@ -164,6 +164,36 @@ $('#enable-audio').addEventListener('click', () => {
   resumeRemoteAudio();
 });
 
+// One-tap 外網 self-test: force relay-only against the delivered TURN servers
+// and report whether we can obtain a relay address. Runs on the user's device
+// (which can reach the TURN provider), so it diagnoses the real service.
+$('#turn-test').addEventListener('click', runTurnTest);
+async function runTurnTest() {
+  const servers = state.iceServers || [];
+  const urls = servers.flatMap((s) => (Array.isArray(s.urls) ? s.urls : [s.urls])).filter(Boolean);
+  if (!urls.some((u) => /^turns?:/i.test(u))) {
+    setHint('❌ 伺服器沒有提供 TURN(啟動時未設定 TURN_CREDENTIALS_URL,見 docs/TURN.md)。');
+    return;
+  }
+  setHint('🔍 外網 TURN 檢測中…(約 5 秒)');
+  let pc;
+  try {
+    pc = new RTCPeerConnection({ iceServers: servers, iceTransportPolicy: 'relay' });
+    let relay = false;
+    pc.onicecandidate = (e) => { if (e.candidate && / typ relay/.test(e.candidate.candidate)) relay = true; };
+    pc.createDataChannel('probe');
+    await pc.setLocalDescription(await pc.createOffer());
+    await new Promise((r) => setTimeout(r, 5000));
+    setHint(relay
+      ? '✅ 外網 TURN 正常(取得 relay 中繼位址)。若仍沒聲音,請確認雙方都切「外網」並重新整理。'
+      : '❌ 外網 TURN 拿不到中繼位址 — TURN 帳密或服務有問題(見 docs/TURN.md)。');
+  } catch (ex) {
+    setHint('❌ 檢測失敗:' + ex.message);
+  } finally {
+    try { pc?.close(); } catch {}
+  }
+}
+
 function liveMicTrack() {
   return state.localStream?.getAudioTracks().find((track) => track.readyState === 'live') || null;
 }
