@@ -1,8 +1,30 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Load a root .env file (KEY=VALUE lines) into process.env if present — no
+// dependency and no Node flag, so `npm start` picks it up on any Node ≥ 18.
+// Real environment variables always win over .env values.
+function loadDotEnv() {
+  const envPath = join(__dirname, '..', '.env');
+  if (!existsSync(envPath)) return;
+  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const s = line.trim();
+    if (!s || s.startsWith('#')) continue;
+    const eq = s.indexOf('=');
+    if (eq === -1) continue;
+    const key = s.slice(0, eq).trim();
+    let val = s.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
+    }
+    if (key && !(key in process.env)) process.env[key] = val;
+  }
+}
+loadDotEnv();
+
 const configPath = process.env.PTT_CONFIG || join(__dirname, '..', 'config', 'users.json');
 
 const raw = JSON.parse(readFileSync(configPath, 'utf8'));

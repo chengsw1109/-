@@ -150,8 +150,11 @@ reverse proxy / tunnel for phones and remote peers. Peers behind strict
 display names live in `config/users.json` (`一般`, `A 組`, `B 組`).
 
 **Config / env overrides** (read in `server/config.js`): `PORT`, `JWT_SECRET`,
-`PTT_CONFIG` (alternate users config path), `STUN_URL`, and
-`TURN_URL`/`TURN_USERNAME`/`TURN_CREDENTIAL`.
+`PTT_CONFIG` (alternate users config path), `STUN_URL`,
+`TURN_URL`/`TURN_USERNAME`/`TURN_CREDENTIAL`, and `TURN_CREDENTIALS_URL`.
+`server/config.js` also loads a root **`.env`** (KEY=VALUE) at startup if present
+— no dependency, no Node flag, so `npm start` picks it up on any Node ≥ 18; real
+environment variables still win. `.env` is gitignored; see `.env.example`.
 
 There is no linter or build step. To sanity-check the server manually:
 `curl localhost:3000/api/health` and
