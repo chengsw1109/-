@@ -49,6 +49,9 @@
       </div>
 
       <button id="enable-audio" class="ghost" hidden>🔊 點一下開啟聲音</button>
+
+      <!-- 大顆按住說話,放在訊息上方 -->
+      <button id="ptt" class="ptt" disabled>🎤 按住說話</button>
       <p id="hint" class="muted small"></p>
 
       <div class="lower">
@@ -63,17 +66,12 @@
             <a href="/help.html" target="_blank" class="muted small">📖 說明</a>
           </div>
           <ul id="chat-log"></ul>
-          <div class="chat-quick">
-            <div id="quick-chips" class="quick-chips"></div>
-            <form id="quick-message-form">
-              <input id="quick-message-new" placeholder="新增快速句子…" maxlength="500" autocomplete="off" />
-              <button class="ghost" type="submit">加入</button>
-            </form>
-          </div>
+          <div id="quick-chips" class="quick-chips"></div>
+          <!-- 一個輸入框:送出=發訊息,加入=存成快速句子 -->
           <form id="chat-form">
             <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
             <button type="submit" class="send">送出</button>
-            <button id="ptt" type="button" class="ptt" disabled>🎤 按住說話</button>
+            <button id="quick-add-btn" type="button" class="ghost">加入</button>
           </form>
         </div>
       </div>

@@ -632,9 +632,9 @@ function renderQuickMessages() {
   for (const text of getCustomQuickMessages()) box.appendChild(makeQuickChip(text, true));
 }
 
-$('#quick-message-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const input = $('#quick-message-new');
+// 加入: save whatever is in the message box as a reusable quick phrase.
+$('#quick-add-btn').addEventListener('click', () => {
+  const input = $('#chat-input');
   const text = input.value.trim();
   if (!text) return;
   const messages = getCustomQuickMessages();

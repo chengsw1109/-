@@ -108,16 +108,16 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 .dot.speaking { background: var(--red); box-shadow: 0 0 0 4px rgba(248,81,73,.25); }
 .dot.receiving { background: var(--green); box-shadow: 0 0 0 4px rgba(46,160,67,.25); }
 
-/* PTT button — a big pill in the bottom row, right of 送出, for one-handed use */
+/* PTT button — big, full-width, above the messages (the primary action) */
 .ptt {
   flex: 0 0 auto;
-  min-width: 150px;
-  padding: 0 18px;
-  border-radius: 14px;
+  width: 100%;
+  height: 72px;
+  border-radius: 16px;
   background: radial-gradient(circle at 50% 0%, #3a4b60, #223041);
   border: 2px solid #3a4b60;
   color: var(--text);
-  font-size: 17px;
+  font-size: 20px;
   font-weight: 700;
   white-space: nowrap;
   user-select: none;
@@ -126,9 +126,10 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 }
 .ptt:not(:disabled):active,
 .ptt.active {
-  transform: scale(0.97);
+  transform: scale(0.99);
   background: radial-gradient(circle at 50% 0%, #f85149, #b42318);
   border-color: #f85149;
+  box-shadow: 0 0 0 4px rgba(248,81,73,.2);
 }
 .ptt:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -181,8 +182,9 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 .chat-head { display: flex; align-items: center; justify-content: space-between; }
 .chat h2 { font-size: 14px; margin: 0; }
 .chat-head a { text-decoration: none; }
-.chat-quick { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.quick-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 76px; overflow-y: auto; }
+/* Quick-phrase chips — tap to send; sit just above the input row */
+.quick-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 68px; overflow-y: auto; margin-bottom: 6px; }
+.quick-chips:empty { display: none; }
 .chip { display: inline-flex; align-items: center; background: var(--card-2); border-radius: 999px; }
 .chip-text {
   background: none; border: none; color: var(--text);
@@ -190,10 +192,6 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
   max-width: 56vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .chip-del { background: none; border: none; color: var(--muted); font-size: 15px; padding: 6px 10px 6px 0; cursor: pointer; }
-/* add-box: input + 加入 on its right (override generic form{flex-direction:column}) */
-#quick-message-form { display: flex; flex-direction: row; gap: 6px; align-items: stretch; margin: 0; min-height: 0; }
-#quick-message-new { flex: 1; min-width: 0; padding: 8px 12px; font-size: 14px; }
-#quick-message-form button { flex: 0 0 auto; padding: 8px 14px; }
 #chat-log {
   list-style: none; padding: 8px; margin: 0;
   background: var(--card); border-radius: 10px;
@@ -208,11 +206,10 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 #chat-log li.mine { align-self: flex-end; background: #2b4a6f; }
 .chat-meta { font-size: 11px; color: var(--muted); }
 .chat-text { word-break: break-word; white-space: pre-wrap; }
-/* row (override the generic form{flex-direction:column} used by the login form) */
-#chat-form { display: flex; flex-direction: row; gap: 8px; align-items: stretch; min-height: 60px; margin: 0; }
+/* input row: [輸入訊息][送出][加入] — override generic form{flex-direction:column} */
+#chat-form { display: flex; flex-direction: row; gap: 8px; align-items: stretch; min-height: 48px; margin: 0; }
 #chat-form input { flex: 1; min-width: 0; }
-#chat-form .send { flex: 0 0 auto; padding: 0 12px; }
-#chat-form button { flex: 0 0 auto; }
+#chat-form button { flex: 0 0 auto; padding: 0 14px; }
 
 /* Direct (serverless 1-to-1) mode */
 .badge {
