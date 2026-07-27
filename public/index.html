@@ -50,30 +50,28 @@
 
       <button id="enable-audio" class="ghost" hidden>🔊 點一下開啟聲音</button>
 
-      <!-- 大顆按住說話,放在訊息上方 -->
+      <div class="online">
+        <h2>🟢 在線 <span id="online-count" class="count">0</span></h2>
+        <ul id="online-list"></ul>
+      </div>
+
+      <!-- 按住說話:放在在線下方、訊息上方(位置低一些) -->
       <button id="ptt" class="ptt" disabled>🎤 按住說話</button>
       <p id="hint" class="muted small"></p>
 
-      <div class="lower">
-        <div class="online">
-          <h2>🟢 在線 <span id="online-count" class="count">0</span></h2>
-          <ul id="online-list"></ul>
+      <div class="chat">
+        <div class="chat-head">
+          <h2>💬 訊息</h2>
+          <a href="/help.html" target="_blank" class="muted small">📖 說明</a>
         </div>
-
-        <div class="chat">
-          <div class="chat-head">
-            <h2>💬 訊息</h2>
-            <a href="/help.html" target="_blank" class="muted small">📖 說明</a>
-          </div>
-          <ul id="chat-log"></ul>
-          <div id="quick-chips" class="quick-chips"></div>
-          <!-- 一個輸入框:送出=發訊息,加入=存成快速句子 -->
-          <form id="chat-form">
-            <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
-            <button type="submit" class="send">送出</button>
-            <button id="quick-add-btn" type="button" class="ghost">加入</button>
-          </form>
-        </div>
+        <ul id="chat-log"></ul>
+        <div id="quick-chips" class="quick-chips"></div>
+        <!-- 一個輸入框:送出=發訊息,加入=存成快速句子 -->
+        <form id="chat-form">
+          <input id="chat-input" placeholder="輸入訊息…" autocomplete="off" maxlength="500" />
+          <button type="submit" class="send">送出</button>
+          <button id="quick-add-btn" type="button" class="ghost">加入</button>
+        </form>
       </div>
     </main>
   </section>

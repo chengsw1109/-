@@ -150,12 +150,6 @@ button.ghost { background: transparent; border: 1px solid #2c3a4a; }
 }
 .netmode select { padding: 6px 10px; border-radius: 999px; border: none; background: var(--card-2); }
 
-/* Lower area: online + chat share the remaining height, scrolling internally */
-.lower {
-  flex: 1; min-height: 0; width: 100%;
-  display: flex; flex-direction: column; gap: 10px; overflow: hidden;
-}
-
 /* Online list — compact chips, capped height, scrolls internally */
 .online { flex: 0 0 auto; width: 100%; }
 .online h2 { font-size: 14px; margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
