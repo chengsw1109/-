@@ -6,4 +6,5 @@ data/recordings/
 *.log
 mcp/dist/
 mcp/.skybridge/
+mcp/.vercel/
 mcp/tsconfig.tsbuildinfo
