@@ -7,7 +7,12 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test:wan": "node test/wan-audio.mjs"
+    "test": "node test/admin-api.mjs",
+    "test:wan": "node test/wan-audio.mjs",
+    "mcp:install": "npm --prefix mcp install",
+    "mcp:dev": "npm --prefix mcp run dev",
+    "mcp:build": "npm --prefix mcp run build",
+    "mcp:typecheck": "npm --prefix mcp run typecheck"
   },
   "engines": {
     "node": ">=18"

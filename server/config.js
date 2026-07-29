@@ -56,4 +56,8 @@ export const config = {
   // https://<app>.metered.live/api/v1/turn/credentials?apiKey=...). When set,
   // the server fetches short-lived TURN credentials from it at login time.
   turnCredentialsUrl: process.env.TURN_CREDENTIALS_URL || '',
+  supabaseUrl: process.env.SUPABASE_URL || '',
+  supabaseServiceRoleKey: process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+  mcpSharedSecret: process.env.PTT_MCP_SHARED_SECRET || '',
+  diagnosticRetentionDays: Math.max(1, Number(process.env.DIAGNOSTIC_RETENTION_DAYS) || 30),
 };

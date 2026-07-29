@@ -7,6 +7,28 @@ app install required.
 Works on **iPhone/iPad (Safari)**, Android, Windows, Mac, and Linux in modern
 browsers (Chrome, Edge, Firefox, Safari) — audio runs over **WebRTC**.
 
+## Supabase diagnostics and MCP
+
+The optional diagnostics integration records sanitized WebSocket, WebRTC, ICE,
+RTP, microphone, and audio playback events in Supabase. It never stores audio,
+SDP, credentials, or candidate addresses.
+
+1. Apply `supabase/migrations/20260729022121_ptt_diagnostics.sql` to the Supabase
+   project.
+2. Add the Supabase and MCP values from `.env.example` to the server `.env`.
+3. Start the PTT server with `npm start`.
+4. Install and run the tool-only MCP server:
+
+```bash
+npm run mcp:install
+npm run mcp:dev
+```
+
+The local MCP endpoint is `http://localhost:3100/mcp` and requires
+`Authorization: Bearer <MCP_AUTH_TOKEN>`. Available tools query current status,
+recent errors, device history, disconnect summaries, and send a channel
+notification.
+
 ## Features
 
 - 🎤 **Push-to-Talk** — hold the button (or the spacebar) to transmit

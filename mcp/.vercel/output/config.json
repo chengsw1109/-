@@ -1,0 +1,19 @@
+{
+  "version": 3,
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "*"
+      },
+      "continue": true
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/mcp"
+    }
+  ]
+}

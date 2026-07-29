@@ -4,3 +4,6 @@ npm-debug.log*
 .DS_Store
 data/recordings/
 *.log
+mcp/dist/
+mcp/.skybridge/
+mcp/tsconfig.tsbuildinfo

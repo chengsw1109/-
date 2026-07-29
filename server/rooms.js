@@ -36,10 +36,15 @@ function send(ws, obj) {
 
 function broadcast(ch, obj, { except } = {}) {
   const msg = JSON.stringify(obj);
+  let delivered = 0;
   for (const ws of ch.members) {
     if (ws === except) continue;
-    if (ws.readyState === ws.OPEN) ws.send(msg);
+    if (ws.readyState === ws.OPEN) {
+      ws.send(msg);
+      delivered++;
+    }
   }
+  return delivered;
 }
 
 // De-duplicated list of usernames in the channel (for the online list UI).
@@ -113,10 +118,32 @@ export function signal(ws, to, data) {
 export function chat(ws, text) {
   const ch = channels.get(ws.channelId);
   if (!ch) return;
-  const clean = String(text).replace(/[\u0000-\u001F\u007F]/g, ' ').slice(0, 500).trim();
+  const clean = cleanChatText(text);
   if (!clean) return;
   const id = `${Date.now()}-${++chatSeq}`;
   broadcast(ch, { type: 'chat', id, channel: ws.channelId, user: ws.username, text: clean, ts: Date.now() });
+}
+
+function cleanChatText(text) {
+  return String(text).replace(/[\u0000-\u001F\u007F]/g, ' ').slice(0, 500).trim();
+}
+
+// Publish an administrator/MCP notification without impersonating a connected
+// browser. Returns the number of live WebSocket recipients.
+export function systemChat(channelId, actor, text) {
+  const ch = channels.get(channelId);
+  const clean = cleanChatText(text);
+  if (!ch || !clean) return { delivered: 0, message: clean };
+  const id = `${Date.now()}-${++chatSeq}`;
+  const delivered = broadcast(ch, {
+    type: 'chat',
+    id,
+    channel: channelId,
+    user: cleanChatText(actor).slice(0, 80) || 'MCP administrator',
+    text: clean,
+    ts: Date.now(),
+  });
+  return { delivered, message: clean, id };
 }
 
 // Try to acquire the floor (PTT pressed). Returns true if granted.

@@ -31,11 +31,50 @@ const state = {
   peers: new Map(), // peerId -> { pc, audioEl, pendingIce:[], haveRemote:bool, username }
   hasFloor: false,
   currentSpeaker: null,
+  deviceId: getOrCreateDeviceId(),
 };
 
 // ICE config actually used for peer connections, per the selected mode.
 function activeIceServers() {
   return state.netMode === 'lan' ? [] : state.iceServers;
+}
+
+function getOrCreateDeviceId() {
+  const key = 'ptt-device-id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = 'web-' + (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+function deviceFamily() {
+  const ua = navigator.userAgent;
+  if (/iPhone/i.test(ua)) return 'iPhone';
+  if (/iPad/i.test(ua)) return 'iPad';
+  if (/Android/i.test(ua)) return 'Android';
+  return 'Desktop';
+}
+
+function browserFamily() {
+  const ua = navigator.userAgent;
+  if (/CriOS/i.test(ua)) return 'Chrome iOS';
+  if (/FxiOS/i.test(ua)) return 'Firefox iOS';
+  if (/Safari/i.test(ua) && !/Chrome|Chromium|Edg/i.test(ua)) return 'Safari';
+  if (/Edg/i.test(ua)) return 'Edge';
+  if (/Chrome|Chromium/i.test(ua)) return 'Chrome';
+  if (/Firefox/i.test(ua)) return 'Firefox';
+  return 'Other';
+}
+
+function reportDiagnostic(eventType, fields = {}) {
+  send({
+    type: 'diagnostic',
+    eventType,
+    networkMode: state.netMode,
+    ...fields,
+  });
 }
 
 // ---- Capability check -----------------------------------------------------
@@ -121,6 +160,7 @@ async function enterApp() {
   modeSel.addEventListener('change', () => {
     state.netMode = modeSel.value;
     localStorage.setItem('ptt-net-mode', state.netMode);
+    reportDiagnostic('network_mode_changed', { reason: 'user selected mode' });
     setHint(state.netMode === 'lan' ? '已切換為內網（區網直連，不使用 TURN）' : '已切換為外網（需要時用 TURN）');
     // Rebuild peer connections so the new ICE setting takes effect.
     if (state.channel) { teardownPeers(); send({ type: 'join', channel: state.channel }); }
@@ -187,8 +227,14 @@ async function runTurnTest() {
     setHint(relay
       ? '✅ 外網 TURN 正常(取得 relay 中繼位址)。若仍沒聲音,請確認雙方都切「外網」並重新整理。'
       : '❌ 外網 TURN 拿不到中繼位址 — TURN 帳密或服務有問題(見 docs/TURN.md)。');
+    reportDiagnostic('turn_test', { relayAvailable: relay });
   } catch (ex) {
     setHint('❌ 檢測失敗:' + ex.message);
+    reportDiagnostic('turn_test', {
+      relayAvailable: false,
+      errorName: ex.name,
+      errorMessage: ex.message,
+    });
   } finally {
     try { pc?.close(); } catch {}
   }
@@ -201,6 +247,10 @@ function liveMicTrack() {
 function reportPlayError(ex) {
   console.error('remote audio play() failed', ex);
   $('#enable-audio').hidden = false;
+  reportDiagnostic('audio_play_error', {
+    errorName: ex.name,
+    errorMessage: ex.message,
+  });
 }
 
 async function resumeRemoteAudio() {
@@ -226,6 +276,11 @@ async function ensureMic() {
   }
   try {
     state.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    for (const track of state.localStream.getAudioTracks()) {
+      track.addEventListener('ended', () => {
+        reportDiagnostic('track_ended', { reason: 'microphone track ended' });
+      }, { once: true });
+    }
     // Keep the track enabled; half-duplex muting is done per sender via
     // replaceTrack() — reliable on iOS Safari, unlike toggling track.enabled
     // (which iOS may not resume, so the peer never hears you).
@@ -233,6 +288,11 @@ async function ensureMic() {
   } catch (ex) {
     state.localStream = null; // listen-only for now
     setHint('⚠️ 尚未取得麥克風(' + ex.name + '):按住「說話」鍵即可允許並啟用。');
+    reportDiagnostic('mic_error', {
+      errorName: ex.name,
+      errorMessage: ex.message,
+      operation: 'getUserMedia',
+    });
     return false;
   }
 }
@@ -255,6 +315,12 @@ function connectWs() {
   ws.onopen = async () => {
     reconnectDelay = 1000;
     setHint('');
+    ws.send(JSON.stringify({
+      type: 'device_hello',
+      deviceId: state.deviceId,
+      deviceFamily: deviceFamily(),
+      browserFamily: browserFamily(),
+    }));
     // iPhones commonly reconnect after a network change or waking from sleep.
     // Refresh short-lived TURN credentials before creating new peer connections.
     try {
@@ -369,7 +435,16 @@ function handleSignal(msg) {
 // ---- WebRTC mesh ----------------------------------------------------------
 function createPeer(peerId, username) {
   const pc = new RTCPeerConnection({ iceServers: activeIceServers() });
-  const entry = { pc, audioEl: null, pendingIce: [], haveRemote: false, username, audioSender: null };
+  const entry = {
+    pc,
+    audioEl: null,
+    pendingIce: [],
+    haveRemote: false,
+    username,
+    peerId,
+    audioSender: null,
+    statsTimer: null,
+  };
   state.peers.set(peerId, entry);
 
   if (state.localStream) {
@@ -394,6 +469,12 @@ function createPeer(peerId, username) {
   };
   pc.onconnectionstatechange = () => {
     const s = pc.connectionState;
+    reportDiagnostic('webrtc_state', {
+      statusKey: peerId,
+      peerId,
+      connectionState: s,
+      iceState: pc.iceConnectionState,
+    });
     // Media is P2P; make a failed path visible instead of silently muted.
     if (s === 'connected') { if ($('#hint').textContent.includes('語音')) setHint(''); }
     else if (s === 'failed') {
@@ -403,7 +484,73 @@ function createPeer(peerId, username) {
     }
     if (s === 'failed' || s === 'closed') removePeer(peerId);
   };
+  pc.oniceconnectionstatechange = () => {
+    reportDiagnostic('webrtc_state', {
+      statusKey: peerId,
+      peerId,
+      connectionState: pc.connectionState,
+      iceState: pc.iceConnectionState,
+    });
+  };
+  entry.statsTimer = setInterval(() => reportPeerStats(peerId, entry), 10000);
   return entry;
+}
+
+async function reportPeerStats(peerId, entry) {
+  if (entry.pc.connectionState === 'closed') return;
+  try {
+    const report = await entry.pc.getStats();
+    let selectedPairId = null;
+    let selectedPair = null;
+    let inboundBytes = 0;
+    let outboundBytes = 0;
+    let packetsReceived = 0;
+    let packetsLost = 0;
+    const rows = new Map();
+    report.forEach((row) => {
+      rows.set(row.id, row);
+      if (row.type === 'transport' && row.selectedCandidatePairId) {
+        selectedPairId = row.selectedCandidatePairId;
+      }
+      if (row.type === 'candidate-pair' && row.state === 'succeeded' && row.nominated) {
+        selectedPair = row;
+      }
+      if (row.type === 'inbound-rtp' && row.kind === 'audio') {
+        inboundBytes += Number(row.bytesReceived || 0);
+        packetsReceived += Number(row.packetsReceived || 0);
+        packetsLost += Number(row.packetsLost || 0);
+      }
+      if (row.type === 'outbound-rtp' && row.kind === 'audio') {
+        outboundBytes += Number(row.bytesSent || 0);
+      }
+    });
+    if (selectedPairId && rows.has(selectedPairId)) selectedPair = rows.get(selectedPairId);
+    const local = selectedPair ? rows.get(selectedPair.localCandidateId) : null;
+    const remote = selectedPair ? rows.get(selectedPair.remoteCandidateId) : null;
+    reportDiagnostic('webrtc_stats', {
+      statusKey: peerId,
+      peerId,
+      connectionState: entry.pc.connectionState,
+      iceState: entry.pc.iceConnectionState,
+      candidateType: local?.candidateType,
+      remoteCandidateType: remote?.candidateType,
+      protocol: local?.protocol,
+      inboundBytes,
+      outboundBytes,
+      packetsReceived,
+      packetsLost,
+    });
+  } catch (ex) {
+    if (entry.pc.connectionState !== 'closed') {
+      reportDiagnostic('peer_error', {
+        statusKey: peerId,
+        peerId,
+        operation: 'getStats',
+        errorName: ex.name,
+        errorMessage: ex.message,
+      });
+    }
+  }
 }
 
 async function connectToPeer(peerId, username, initiator) {
@@ -418,6 +565,13 @@ async function connectToPeer(peerId, username, initiator) {
       send({ type: 'signal', to: peerId, data: { kind: 'offer', sdp: pc.localDescription } });
     } catch (ex) {
       console.error('offer failed', ex);
+      reportDiagnostic('peer_error', {
+        statusKey: peerId,
+        peerId,
+        operation: 'createOffer',
+        errorName: ex.name,
+        errorMessage: ex.message,
+      });
     }
   }
 }
@@ -445,6 +599,13 @@ async function onSignal(from, data) {
     }
   } catch (ex) {
     console.error('signal handling failed', ex);
+    reportDiagnostic('peer_error', {
+      statusKey: from,
+      peerId: from,
+      operation: 'signal',
+      errorName: ex.name,
+      errorMessage: ex.message,
+    });
   }
 }
 
@@ -479,6 +640,7 @@ function attachAudio(peerId, stream) {
 function removePeer(peerId) {
   const entry = state.peers.get(peerId);
   if (!entry) return;
+  clearInterval(entry.statsTimer);
   try { entry.pc.close(); } catch {}
   if (entry.audioEl) {
     entry.audioEl.srcObject = null;
@@ -503,6 +665,13 @@ function setFloor(on) {
       entry.audioSender.replaceTrack(on ? track : null).catch((ex) => {
         console.error('audio sender replaceTrack() failed', ex);
         setHint('⚠️ 無法切換麥克風:' + ex.message);
+        reportDiagnostic('peer_error', {
+          statusKey: entry.peerId,
+          peerId: entry.peerId,
+          operation: 'replaceTrack',
+          errorName: ex.name,
+          errorMessage: ex.message,
+        });
       });
     }
   }

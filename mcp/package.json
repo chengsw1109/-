@@ -1,0 +1,38 @@
+{
+  "name": "browser-ptt-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tool-only MCP server for Browser PTT diagnostics and notifications",
+  "type": "module",
+  "scripts": {
+    "dev": "skybridge dev",
+    "build": "skybridge build",
+    "start": "skybridge start",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node test/auth.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@supabase/supabase-js": "2.111.0",
+    "skybridge": "1.3.1",
+    "vite": "8.1.5",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@skybridge/devtools": "1.3.1",
+    "@types/express": "5.0.6",
+    "@types/node": "24.13.3",
+    "tsx": "4.23.1",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=22.23.1"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "ejs": "6.0.1",
+    "filelist": "2.0.2",
+    "jake": "12.10.1",
+    "minimatch": "10.2.6"
+  }
+}
